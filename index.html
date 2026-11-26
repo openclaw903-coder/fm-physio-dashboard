@@ -543,6 +543,25 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
 .cpw-form .pw-toggle{color:var(--sidebar-muted)}
 .cpw-form .pw-toggle:hover{color:#fff;background:rgba(255,255,255,.12)}
 
+/* Users & Access */
+.nav-item[hidden]{display:none !important}
+.page-checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px 14px;margin:10px 0 4px}
+.page-check{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;color:var(--ink-2);cursor:pointer;padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:var(--surface-3)}
+.page-check input{width:18px;height:18px;accent-color:var(--teal-deep);flex:none;cursor:pointer}
+.page-check input:disabled{cursor:not-allowed;opacity:.5}
+.users-err{color:var(--red);font-size:13.5px;font-weight:700;margin:8px 0 0}
+.users-err:empty{display:none}
+.users-ok{color:var(--teal-ink);font-size:13.5px;font-weight:700;margin:8px 0 0}
+.users-ok:empty{display:none}
+.user-card{border:1px solid var(--line);border-radius:var(--radius-s);padding:16px;margin-bottom:14px;background:var(--surface)}
+.user-card-head{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:6px}
+.user-card-head .uc-main{flex:1;min-width:200px}
+.user-card-head .uc-name{font-weight:800;font-size:15.5px}
+.user-card-head .uc-email{font-size:13px;color:var(--muted)}
+.user-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.invite-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+@media (max-width:640px){.invite-grid{grid-template-columns:1fr}}
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
@@ -658,6 +677,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
         <button class="nav-item" data-page="ai"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M8 4h8"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/><path d="M9 17h6"/></svg>AI Agents</button>
         
         <button class="nav-item" data-page="dnc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91"/><path d="m2 2 20 20"/></svg>Do Not Call<span class="nav-badge" id="liveBadgeDnc">—</span></button>
+        <button class="nav-item" data-page="users" id="navUsers" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>Users &amp; Access</button>
       </div>
     </nav>
 
@@ -1269,6 +1289,35 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
         </div>
       </section>
 
+      <!-- ======== USERS & ACCESS (owner only) ======== -->
+      <section class="page" id="page-users">
+        <div class="page-head"><div><h2>Users &amp; Access</h2><p>Invite users, choose exactly which pages each one can see, deactivate or delete accounts. Only the owner can use this page.</p></div></div>
+        <div class="panel" style="margin-bottom:22px">
+          <h3>Invite a user</h3>
+          <p class="nb-note">They receive an email invite, set their own password from the link, and can only see the pages you tick. No pages are ticked by default.</p>
+          <form id="inviteForm">
+            <div class="invite-grid">
+              <div class="field"><label for="inviteEmail">Email</label><input type="email" id="inviteEmail" autocomplete="off" required /></div>
+              <div class="field"><label for="inviteName">Display name</label><input type="text" id="inviteName" autocomplete="off" required /></div>
+            </div>
+            <div class="field"><label>Pages this user can see</label><div class="page-checks" id="invitePages"></div></div>
+            <p class="users-err" id="inviteErr" role="alert"></p>
+            <p class="users-ok" id="inviteOk" role="status"></p>
+            <button class="btn primary" type="submit" id="inviteBtn">Send invite</button>
+          </form>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>All users</h3><button class="btn small" type="button" id="usersRefresh">Refresh list</button></div>
+          <p class="users-err" id="usersErr" role="alert"></p>
+          <div id="usersList"><div class="empty-note">Loading users…</div></div>
+        </div>
+      </section>
+
+      <!-- ======== ACCESS NOT GRANTED ======== -->
+      <section class="page" id="page-denied">
+        <div class="empty-state"><div class="big">Access not granted</div><p>You don&rsquo;t have access to this page. Ask the owner to grant it from Users &amp; Access.</p></div>
+      </section>
+
     </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /app -->
@@ -1348,6 +1397,54 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
 
 <script>
 function escHtml(s){ return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+/* The 16 gated pages — keys match user_page_access.page exactly. */
+var PAGE_DEFS = [
+  {key:"overview", label:"Overview"},
+  {key:"owner-overview", label:"Owner Overview"},
+  {key:"admin-today", label:"Admin Today"},
+  {key:"appointments", label:"Appointments"},
+  {key:"patients", label:"Patients"},
+  {key:"enquiries", label:"Enquiries & Leads"},
+  {key:"cancellations", label:"Cancellations & DNA"},
+  {key:"complaints", label:"Complaints & Refunds"},
+  {key:"discharged", label:"Discharged Patients"},
+  {key:"team", label:"Team & Packages"},
+  {key:"performance", label:"Physio Performance"},
+  {key:"progress", label:"Progress"},
+  {key:"payments", label:"Payments"},
+  {key:"ai", label:"AI Agents"},
+  {key:"unprocessed", label:"Unprocessed"},
+  {key:"dnc", label:"Do Not Call"}
+];
+var ALL_PAGE_KEYS = PAGE_DEFS.map(function(p){ return p.key; });
+/* Session access state — filled after login from admin_users +
+   user_page_access by the live-data script. Until loaded, nothing is
+   gated (the login gate covers the screen anyway). */
+var ACCESS = { loaded:false, role:null, active:true, isOwner:false, userId:null, email:"", allowed:new Set(ALL_PAGE_KEYS) };
+function canAccessPage(id){
+  if(!ACCESS.loaded) return true;
+  if(id==="denied") return true;
+  if(ACCESS.isOwner) return true;
+  if(id==="users") return false;
+  if(id==="patient" || id==="physio") return ACCESS.allowed.has("patients");
+  return ACCESS.allowed.has(id);
+}
+function applySidebarAccess(){
+  document.querySelectorAll(".nav-item[data-page]").forEach(function(b){
+    var p = b.getAttribute("data-page");
+    if(p==="users"){ b.hidden = !(ACCESS.loaded && ACCESS.isOwner); return; }
+    b.hidden = ACCESS.loaded && !ACCESS.isOwner && !ACCESS.allowed.has(p);
+  });
+  /* Hide a group label when every item under it is hidden. */
+  document.querySelectorAll(".nav-group").forEach(function(g){
+    var items = g.querySelectorAll(".nav-item[data-page]");
+    var anyVisible = false;
+    items.forEach(function(i){ if(!i.hidden) anyVisible = true; });
+    var lab = g.querySelector(".nav-group-label");
+    if(lab) lab.style.display = anyVisible ? "" : "none";
+    g.style.display = anyVisible ? "" : "none";
+  });
+}
 </script>
 <script>
 var CHEV = '<span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>';
@@ -1394,7 +1491,7 @@ var PATIENTS = {};
 var APPOINTMENTS = [];
 
 /* ================= NAVIGATION ================= */
-var pages = ["overview","owner-overview","admin-today","appointments","unprocessed","patients","progress","enquiries","cancellations","complaints","discharged","team","performance","payments","ai","dnc","patient","physio"];
+var pages = ["overview","owner-overview","admin-today","appointments","unprocessed","patients","progress","enquiries","cancellations","complaints","discharged","team","performance","payments","ai","dnc","patient","physio","users","denied"];
 var lastPage = "overview";
 var activePage = "overview";
 var returnPage = "overview";
@@ -1403,6 +1500,9 @@ function rememberScroll(){
   if(activePage!=="patient" && activePage!=="physio"){ returnPage = activePage; returnScrollY = window.scrollY || window.pageYOffset || 0; }
 }
 function showPage(id, restoreY){
+  /* Real per-page gating: a page the signed-in user is not allowed
+     never renders — the Access not granted page shows instead. */
+  if(!canAccessPage(id)) id = "denied";
   pages.forEach(function(p){ var el=document.getElementById("page-"+p); if(el) el.classList.toggle("active", p===id); });
   document.querySelectorAll(".nav-item").forEach(function(b){ b.classList.toggle("active", b.getAttribute("data-page")===id); });
   if(id!=="patient" && id!=="physio") lastPage=id;
@@ -3289,26 +3389,40 @@ function fetchAll(){
   var lists = {};
   var TASK_COLS = "id,contact_id,task_type,title,status,priority,created_at,due_at,completed_at,metadata";
   var APPT_COLS = "id,contact_id,practitioner_id,status,starts_at,cancel_reason,cancel_date";
+  /* Per-page data gating — a list is only fetched when at least one
+     page that uses it is allowed for the signed-in user. A hidden
+     page's data is never requested at all. The owner (and the brief
+     pre-load state) fetch everything, exactly as before. */
+  function canFetch(pageKeys){
+    if (!ACCESS.loaded || ACCESS.isOwner) return true;
+    return pageKeys.some(function(k){ return ACCESS.allowed.has(k); });
+  }
+  function gated(pageKeys, makeJob, assign){
+    /* makeJob is a thunk: when the pages are not allowed it is never
+       invoked, so the underlying fetch never starts at all. */
+    if (canFetch(pageKeys)) return makeJob();
+    return Promise.resolve().then(function(){ assign([]); });
+  }
   var listJobs = [
-    listAll("contacts","id,first_name,last_name,email,phone_e164,dnc,created_at","created_at",false).then(function(d){ lists.contacts = d; }),
-    listAll("tasks",TASK_COLS,"created_at",false).then(function(d){ lists.tasks = d; }),
-    listAll("appointments",APPT_COLS,"starts_at",false).then(function(d){ lists.appts = d; }),
-    listAll("interactions","id,contact_id,provider,channel,direction,outcome,summary,created_at","created_at",false).then(function(d){ lists.interactions = d; }),
-    listAll("referrals","id,contact_id,referred_by,detail,status,created_at","created_at",false).then(function(d){ lists.referrals = d; }),
-    listQ("dashboard_monthly_performance","report_month,attended,no_shows,cancellations","report_month",true,12).then(function(d){ lists.monthly = d; }),
-    listAll("sequence_instances","id,contact_id,sequence_key,status,created_at","created_at",false).then(function(d){ lists.sequences = d; }),
-    listQ("practicehub_practitioners","practitioner_id,name,active",null,false,50).then(function(d){ lists.practitioners = d; }),
+    gated(["patients","overview","owner-overview","enquiries","dnc","admin-today"], function(){ return listAll("contacts","id,first_name,last_name,email,phone_e164,dnc,created_at","created_at",false).then(function(d){ lists.contacts = d; }); }, function(d){ lists.contacts = d; }),
+    gated(["admin-today","overview","owner-overview","team","complaints"], function(){ return listAll("tasks",TASK_COLS,"created_at",false).then(function(d){ lists.tasks = d; }); }, function(d){ lists.tasks = d; }),
+    gated(["appointments","overview","owner-overview","admin-today","unprocessed","patients","cancellations","team","performance","progress"], function(){ return listAll("appointments",APPT_COLS,"starts_at",false).then(function(d){ lists.appts = d; }); }, function(d){ lists.appts = d; }),
+    gated(["enquiries","ai","overview","patients"], function(){ return listAll("interactions","id,contact_id,provider,channel,direction,outcome,summary,created_at","created_at",false).then(function(d){ lists.interactions = d; }); }, function(d){ lists.interactions = d; }),
+    gated(["patients","enquiries","overview","owner-overview"], function(){ return listAll("referrals","id,contact_id,referred_by,detail,status,created_at","created_at",false).then(function(d){ lists.referrals = d; }); }, function(d){ lists.referrals = d; }),
+    gated(["performance","progress","overview","owner-overview"], function(){ return listQ("dashboard_monthly_performance","report_month,attended,no_shows,cancellations","report_month",true,12).then(function(d){ lists.monthly = d; }); }, function(d){ lists.monthly = d; }),
+    gated(["patients","discharged"], function(){ return listAll("sequence_instances","id,contact_id,sequence_key,status,created_at","created_at",false).then(function(d){ lists.sequences = d; }); }, function(d){ lists.sequences = d; }),
+    gated(["team","performance","appointments","admin-today","unprocessed"], function(){ return listQ("practicehub_practitioners","practitioner_id,name,active",null,false,50).then(function(d){ lists.practitioners = d; }); }, function(d){ lists.practitioners = d; }),
     /* Targeted sets — complaint / refund tasks by task_type, and cancelled /
        missed appointments by status, each fetched on its own so the page
        lists always match their headline counts. */
-    listAll("tasks",TASK_COLS,"created_at",false,[["task_type","complaint"]]).then(function(d){ lists.crComplaint = d; }),
-    listAll("tasks",TASK_COLS,"created_at",false,[["task_type","refund"]]).then(function(d){ lists.crRefund = d; }),
-    listAll("appointments",APPT_COLS,"starts_at",false,[["status","cancelled"]]).then(function(d){ lists.cxCancelled = d; }),
-    listAll("appointments",APPT_COLS,"starts_at",false,[["status","missed"]]).then(function(d){ lists.cxMissed = d; }),
+    gated(["complaints"], function(){ return listAll("tasks",TASK_COLS,"created_at",false,[["task_type","complaint"]]).then(function(d){ lists.crComplaint = d; }); }, function(d){ lists.crComplaint = d; }),
+    gated(["complaints"], function(){ return listAll("tasks",TASK_COLS,"created_at",false,[["task_type","refund"]]).then(function(d){ lists.crRefund = d; }); }, function(d){ lists.crRefund = d; }),
+    gated(["cancellations"], function(){ return listAll("appointments",APPT_COLS,"starts_at",false,[["status","cancelled"]]).then(function(d){ lists.cxCancelled = d; }); }, function(d){ lists.cxCancelled = d; }),
+    gated(["cancellations"], function(){ return listAll("appointments",APPT_COLS,"starts_at",false,[["status","missed"]]).then(function(d){ lists.cxMissed = d; }); }, function(d){ lists.cxMissed = d; }),
     /* Agency views — SLA overdue and journey / deposit metrics. Both
        resolve to null on failure; applyLiveData falls back gracefully. */
-    fetchViewRows("vw_task_sla","task_id,status,is_overdue,sla_due_at","task_id").then(function(d){ lists.sla = d; }),
-    fetchViewRows("vw_journey_metrics_plus","*",null).then(function(d){ lists.journey = d; })
+    gated(["admin-today","overview","owner-overview"], function(){ return fetchViewRows("vw_task_sla","task_id,status,is_overdue,sla_due_at","task_id").then(function(d){ lists.sla = d; }); }, function(d){ lists.sla = null; }),
+    gated(["appointments","overview","owner-overview"], function(){ return fetchViewRows("vw_journey_metrics_plus","*",null).then(function(d){ lists.journey = d; }); }, function(d){ lists.journey = null; })
   ];
   return Promise.all(jobs.concat(listJobs)).then(function(){
     /* Per-practitioner totals (exact counts) */
@@ -3947,7 +4061,241 @@ function todayLondon(){
     return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2);
   }
 }
+/* ---------- multi-user access (owner + users) ---------- */
+/* After login, read the signed-in user's admin_users row (role, active)
+   and their user_page_access rows, and keep them in the global ACCESS
+   session state. The owner always has all 16 pages. */
+var accessLoading = false;
+function loadUserAccess(){
+  if (!sb) return Promise.resolve(false);
+  return sb.auth.getSession().then(function(res){
+    var session = res.data && res.data.session;
+    if (!session || !session.user) return false;
+    var user = session.user;
+    function withRow(row){
+      if (!row) return false;
+      var role = row.role || "user";
+      var activeVal = (row.active != null ? row.active : (row.is_active != null ? row.is_active : true));
+      ACCESS.role = role;
+      ACCESS.isOwner = role === "owner";
+      ACCESS.active = activeVal !== false;
+      ACCESS.userId = row.id || user.id;
+      ACCESS.email = row.email || user.email || "";
+      if (!ACCESS.active){
+        ACCESS.loaded = true;
+        applySidebarAccess();
+        document.body.classList.add("locked");
+        showView("noaccess");
+        return false;
+      }
+      if (ACCESS.isOwner){
+        ACCESS.allowed = new Set(ALL_PAGE_KEYS);
+        ACCESS.loaded = true;
+        applySidebarAccess();
+        return true;
+      }
+      var uid = row.id || user.id;
+      return sb.from("user_page_access").select("page,allowed").eq("user_id", uid).then(function(r2){
+        var allowed = new Set();
+        if (!r2.error && r2.data) r2.data.forEach(function(pr){ if (pr.allowed) allowed.add(pr.page); });
+        ACCESS.allowed = allowed;
+        ACCESS.loaded = true;
+        applySidebarAccess();
+        return true;
+      }).catch(function(){
+        ACCESS.allowed = new Set();
+        ACCESS.loaded = true;
+        applySidebarAccess();
+        return true;
+      });
+    }
+    return sb.from("admin_users").select("*").eq("id", user.id).maybeSingle().then(function(r){
+      if (!r.error && r.data) return withRow(r.data);
+      return sb.from("admin_users").select("*").eq("email", user.email || "").maybeSingle().then(function(r2){
+        if (!r2.error && r2.data) return withRow(r2.data);
+        /* No admin_users row at all — keep the existing no-access path. */
+        ACCESS.loaded = true; ACCESS.role = "user"; ACCESS.isOwner = false; ACCESS.allowed = new Set();
+        applySidebarAccess();
+        return true;
+      });
+    });
+  }).catch(function(){ ACCESS.loaded = true; applySidebarAccess(); return true; });
+}
+
+/* ---------- Users & Access page (owner only) ---------- */
+var ADMIN_FN_URL = SB_URL + "/functions/v1/admin-users";
+function adminFn(payload){
+  return sb.auth.getSession().then(function(res){
+    var session = res.data && res.data.session;
+    var token = session && session.access_token;
+    if (!token) throw new Error("You are not signed in — sign in again and retry.");
+    return fetch(ADMIN_FN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token, "apikey": SB_KEY },
+      body: JSON.stringify(payload)
+    }).then(function(r){
+      return r.json().catch(function(){ return {}; }).then(function(data){
+        if (!r.ok || (data && data.error)) throw new Error((data && (data.error || data.message)) || ("Request failed (" + r.status + ")"));
+        return data || {};
+      });
+    });
+  });
+}
+function userAllowedPages(u){
+  var out = new Set();
+  var src = u.pages || u.allowed_pages || u.page_access || u.pages_allowed || null;
+  if (Array.isArray(src)) src.forEach(function(x){
+    if (typeof x === "string") out.add(x);
+    else if (x && x.page && x.allowed !== false) out.add(x.page);
+  });
+  else if (src && typeof src === "object") Object.keys(src).forEach(function(k){ if (src[k]) out.add(k); });
+  return out;
+}
+function pageChecksHTML(namePrefix, allowedSet, disabled){
+  return PAGE_DEFS.map(function(p){
+    var checked = allowedSet && allowedSet.has(p.key) ? " checked" : "";
+    var dis = disabled ? " disabled" : "";
+    return '<label class="page-check"><input type="checkbox" name="' + namePrefix + '" value="' + p.key + '"' + checked + dis + ' />' + esc(p.label) + '</label>';
+  }).join("");
+}
+var invitePagesEl = document.getElementById("invitePages");
+if (invitePagesEl) invitePagesEl.innerHTML = pageChecksHTML("invite-page", new Set(), false);
+
+var usersLoadedOnce = false;
+function renderUsersList(users){
+  var wrap = document.getElementById("usersList"); if (!wrap) return;
+  if (!users.length){ wrap.innerHTML = '<div class="empty-note">No users yet.</div>'; return; }
+  wrap.innerHTML = users.map(function(u, idx){
+    var uid = u.id || u.user_id || "";
+    var isOwner = (u.role === "owner");
+    var activeVal = (u.active != null ? u.active : (u.is_active != null ? u.is_active : true));
+    var isActive = activeVal !== false;
+    var allowed = isOwner ? new Set(ALL_PAGE_KEYS) : userAllowedPages(u);
+    var name = esc(u.display_name || u.name || u.email || "User");
+    var email = esc(u.email || "");
+    var roleTag = isOwner ? '<span class="tag green">Owner</span>' : '<span class="tag blue">User</span>';
+    var statusTag = isActive ? '<span class="tag green">Active</span>' : '<span class="tag red">Inactive</span>';
+    var actions = "";
+    if (!isOwner){
+      actions = '<div class="user-actions">'
+        + '<button class="btn small primary" type="button" data-user-save="' + idx + '">Save pages</button>'
+        + '<button class="btn small" type="button" data-user-active="' + idx + '">' + (isActive ? "Deactivate" : "Reactivate") + '</button>'
+        + '<button class="btn small danger" type="button" data-user-delete="' + idx + '">Delete</button>'
+        + '</div>';
+    } else {
+      actions = '<p class="cell-sub" style="margin-top:10px">The owner always has all pages and cannot be deactivated or deleted.</p>';
+    }
+    return '<div class="user-card" data-user-idx="' + idx + '" data-user-id="' + esc(String(uid)) + '" data-user-active="' + (isActive ? "1" : "0") + '">'
+      + '<div class="user-card-head"><div class="uc-main"><div class="uc-name">' + name + '</div><div class="uc-email">' + email + '</div></div>' + roleTag + " " + statusTag + '</div>'
+      + '<div class="page-checks">' + pageChecksHTML("user-page-" + idx, allowed, isOwner) + '</div>'
+      + actions
+      + '<p class="users-err" data-user-err role="alert"></p>'
+      + '</div>';
+  }).join("");
+  /* Two-tap confirm state per card, reset on every render. */
+  wrap.querySelectorAll("[data-user-active], [data-user-delete]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var card = btn.closest(".user-card");
+      var idx2 = parseInt(card.getAttribute("data-user-idx"), 10);
+      var u = users[idx2]; if (!u) return;
+      var uid = u.id || u.user_id;
+      var errEl = card.querySelector("[data-user-err]"); if (errEl) errEl.textContent = "";
+      var isDelete = btn.hasAttribute("data-user-delete");
+      if (!btn.classList.contains("confirm")){
+        btn.classList.add("confirm");
+        btn.textContent = isDelete ? "Tap again to confirm delete (permanent)" : "Tap again to confirm";
+        setTimeout(function(){ if (btn.isConnected && btn.classList.contains("confirm")){ btn.classList.remove("confirm"); btn.textContent = isDelete ? "Delete" : ((card.getAttribute("data-user-active") === "1") ? "Deactivate" : "Reactivate"); } }, 5000);
+        return;
+      }
+      btn.disabled = true; btn.textContent = "Working…";
+      var call = isDelete
+        ? adminFn({ action: "delete_user", user_id: uid })
+        : adminFn({ action: "set_active", user_id: uid, active: card.getAttribute("data-user-active") !== "1" });
+      call.then(function(){ loadUsersList(); }).catch(function(e){
+        btn.disabled = false; btn.classList.remove("confirm"); btn.textContent = isDelete ? "Delete" : "Try again";
+        if (errEl) errEl.textContent = (e && e.message) || "Something went wrong — try again.";
+      });
+    });
+  });
+  wrap.querySelectorAll("[data-user-save]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var card = btn.closest(".user-card");
+      var idx2 = parseInt(card.getAttribute("data-user-idx"), 10);
+      var u = users[idx2]; if (!u) return;
+      var uid = u.id || u.user_id;
+      var errEl = card.querySelector("[data-user-err]"); if (errEl) errEl.textContent = "";
+      var pages = [];
+      card.querySelectorAll('input[type="checkbox"]:checked').forEach(function(c){ pages.push(c.value); });
+      btn.disabled = true; btn.textContent = "Saving…";
+      adminFn({ action: "set_pages", user_id: uid, pages: pages }).then(function(){
+        btn.disabled = false; btn.textContent = "Saved ✓";
+        setTimeout(function(){ if (btn.isConnected) btn.textContent = "Save pages"; }, 2500);
+      }).catch(function(e){
+        btn.disabled = false; btn.textContent = "Save pages";
+        if (errEl) errEl.textContent = (e && e.message) || "Could not save pages — try again.";
+      });
+    });
+  });
+}
+function loadUsersList(){
+  var err = document.getElementById("usersErr"); if (err) err.textContent = "";
+  var wrap = document.getElementById("usersList"); if (wrap && !usersLoadedOnce) wrap.innerHTML = '<div class="empty-note">Loading users…</div>';
+  adminFn({ action: "list_users" }).then(function(data){
+    var users = data.users || data.data || (Array.isArray(data) ? data : []);
+    usersLoadedOnce = true;
+    renderUsersList(users);
+  }).catch(function(e){
+    if (err) err.textContent = (e && e.message) || "Could not load users — try again.";
+    if (wrap) wrap.innerHTML = '<div class="empty-note">Could not load users.</div>';
+  });
+}
+var usersNavBtn = document.getElementById("navUsers");
+if (usersNavBtn) usersNavBtn.addEventListener("click", function(){ if (ACCESS.isOwner) loadUsersList(); });
+var usersRefreshBtn = document.getElementById("usersRefresh");
+if (usersRefreshBtn) usersRefreshBtn.addEventListener("click", loadUsersList);
+var inviteForm = document.getElementById("inviteForm");
+if (inviteForm) inviteForm.addEventListener("submit", function(e){
+  e.preventDefault();
+  var err = document.getElementById("inviteErr"), ok = document.getElementById("inviteOk"), btn = document.getElementById("inviteBtn");
+  err.textContent = ""; ok.textContent = "";
+  var email = document.getElementById("inviteEmail").value.trim();
+  var name = document.getElementById("inviteName").value.trim();
+  var pages = [];
+  inviteForm.querySelectorAll('input[name="invite-page"]:checked').forEach(function(c){ pages.push(c.value); });
+  if (!email){ err.textContent = "Enter the user's email."; return; }
+  if (!name){ err.textContent = "Enter the user's display name."; return; }
+  btn.disabled = true; btn.textContent = "Sending invite…";
+  adminFn({ action: "invite", email: email, display_name: name, pages: pages }).then(function(){
+    btn.disabled = false; btn.textContent = "Send invite";
+    ok.textContent = "Invite sent to " + email + " — they set their own password from the email link.";
+    inviteForm.reset();
+    if (invitePagesEl) invitePagesEl.innerHTML = pageChecksHTML("invite-page", new Set(), false);
+    loadUsersList();
+  }).catch(function(ex){
+    btn.disabled = false; btn.textContent = "Send invite";
+    err.textContent = (ex && ex.message) || "Could not send the invite — try again.";
+  });
+});
+
 function enterDashboard(){
+  if (!ACCESS.loaded && !accessLoading){
+    accessLoading = true;
+    showView("loading");
+    loadUserAccess().then(function(ok){
+      accessLoading = false;
+      if (ok === false && !ACCESS.active) return; /* inactive — no-access view already shown */
+      enterDashboard();
+    });
+    return;
+  }
+  if (ACCESS.loaded && !ACCESS.active){ document.body.classList.add("locked"); showView("noaccess"); return; }
+  /* If the current page is not allowed for this user, land on the
+     first allowed page instead of a denied screen. */
+  if (ACCESS.loaded && !ACCESS.isOwner && !canAccessPage(activePage)){
+    var firstAllowed = ALL_PAGE_KEYS.filter(function(k){ return ACCESS.allowed.has(k); })[0];
+    if (firstAllowed) showPage(firstAllowed);
+    else { document.body.classList.add("locked"); showView("noaccess"); return; }
+  }
   TODAY_ISO = todayLondon();
   DATE_STATE.custom = TODAY_ISO;
   DATE_STATE.from = isoAdd(TODAY_ISO, -6);
