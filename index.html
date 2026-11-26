@@ -748,7 +748,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
           <button class="ns-item" data-goto="admin-today">Overdue tasks · <b class="num" id="nsOverdue">—</b></button>
           <button class="ns-item" data-goto="unprocessed">Unprocessed · <b class="num" id="nsUnproc">—</b></button>
           <button class="ns-item" data-goto="complaints">Complaints &amp; refunds · <b class="num" id="nsComplaints">—</b> tasks</button>
-          <button class="ns-item" data-goto="patients">Referrals to check · <b class="num">0</b></button>
+          <button class="ns-item" data-goto="patients">Referrals to check · <b class="num" id="nsReferrals">0</b></button>
           <button class="ns-item" data-goto="dnc">Do Not Call · <b class="num" id="nsDnc">—</b></button>
         </div>
 
@@ -775,7 +775,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
             <div class="panel-head"><h3>Patient safety</h3><button class="link-btn" data-goto="complaints">Complaints &amp; Refunds →</button></div>
             <div class="rows">
               <div class="row-item" data-goto="complaints"><div class="row-main"><div class="row-title">Complaints &amp; refunds</div><div class="row-sub" id="ovCompSub">Complaints / refunds · all time</div></div><div class="row-side"><div class="t num" id="ovCompTasks">—</div><div class="row-sub">Tasks</div></div></div>
-              <div class="row-item" data-goto="patients"><div class="row-main"><div class="row-title">Referrals to check</div><div class="row-sub">No referral data yet</div></div><div class="row-side"><div class="t num">0</div></div></div>
+              <div class="row-item" data-goto="patients"><div class="row-main"><div class="row-title">Referrals to check</div><div class="row-sub" id="ovRefSub">From Supabase</div></div><div class="row-side"><div class="t num" id="ovRefCount">0</div></div></div>
               <div class="row-item" data-goto="dnc"><div class="row-main"><div class="row-title">Do Not Call</div><div class="row-sub">Contacts flagged DNC</div></div><div class="row-side"><div class="t num" id="ovDnc">—</div></div></div>
             </div>
           </div>
@@ -820,7 +820,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
           <button class="kpi kpi-link" data-goto="team"><div class="k-label">Waiting on physios</div><div class="k-value num">—</div><div class="k-sub">Not recorded</div></button>
           <button class="kpi kpi-link" data-goto="unprocessed"><div class="k-label">Unprocessed appointments</div><div class="k-value num" id="ooUnproc">—</div><div class="k-sub">Appointments pending</div></button>
           <button class="kpi kpi-link" data-goto="complaints"><div class="k-label">Open refunds and complaints</div><div class="k-value num" id="ooCompRef">—</div><div class="k-sub">Complaints / refunds · all time</div></button>
-          <button class="kpi kpi-link" data-goto="patients"><div class="k-label">Referrals to check</div><div class="k-value num">0</div><div class="k-sub">No referral data yet</div></button>
+          <button class="kpi kpi-link" data-goto="patients"><div class="k-label">Referrals to check</div><div class="k-value num" id="ooRefCount">0</div><div class="k-sub" id="ooRefSub">From Supabase</div></button>
           <button class="kpi kpi-link" data-goto="payments"><div class="k-label">Revenue</div><div class="k-value nodata">No data yet</div><div class="k-sub">No payment data yet</div></button>
           <button class="kpi kpi-link" data-goto="enquiries"><div class="k-label">New patients</div><div class="k-value num" id="ooNewPatients">—</div><div class="k-sub" id="ooNewPatientsSub">New contacts</div></button>
           <button class="kpi kpi-link" data-goto="team"><div class="k-label">Packages sold</div><div class="k-value nodata">No data yet</div><div class="k-sub">No package data yet</div></button>
@@ -1584,6 +1584,14 @@ function renderReferrals(){
   if(valid) sum += " · " + valid + " valid";
   if(notValid) sum += " · " + notValid + " not valid";
   document.getElementById("refSummary").textContent = sum;
+  /* Keep every "Referrals to check" counter in step with Supabase —
+     Overview, Owner Overview and the Needs attention strip all read
+     from the same referrals table, never a hardcoded 0. */
+  var nsRef = document.getElementById("nsReferrals"); if(nsRef) nsRef.textContent = toCheck;
+  var ovRefCount = document.getElementById("ovRefCount"); if(ovRefCount) ovRefCount.textContent = toCheck;
+  var ovRefSub = document.getElementById("ovRefSub"); if(ovRefSub) ovRefSub.textContent = sum + " · in Supabase";
+  var ooRefCount = document.getElementById("ooRefCount"); if(ooRefCount) ooRefCount.textContent = toCheck;
+  var ooRefSub = document.getElementById("ooRefSub"); if(ooRefSub) ooRefSub.textContent = sum + " · in Supabase";
   if(!rows.length){
     wrap.innerHTML = '<div class="empty-note">No referrals yet</div>';
     return;
@@ -2053,8 +2061,9 @@ function adminBottomRowHTML(a){
 /* Enquiry rows are all interactions (full fetch, no cap).
    Source comes from provider + channel (Vapi web = chat, Assistant voice = speed-to-lead,
    Retell voice = after-hours, or reactivation when the summary is a follow-up / check-in).
-   There is no ad-source column, so Meta ads (form), Google ads and Referrals carry
-   NO numbers — they live in GHL / Meta Ads / Google Ads. */
+   There is no ad-source column, so Meta ads (form) and Google ads carry
+   NO numbers — they live in Meta Ads / Google Ads. Referrals are different:
+   they live in Supabase (public.referrals) and are shown from REFERRALS below. */
 var ENQ_SOURCES = [
   {key:"afterhours", name:"AI after-hours calls", role:"Inbound Voice Agent", via:"Retell · voice, inbound", sub:"Inbound Voice Agent · Retell"},
   {key:"chat", name:"AI chat assistant", role:"Inbound Chat Agent", via:"Vapi · web", sub:"Inbound Chat Agent · Vapi"},
@@ -2063,9 +2072,12 @@ var ENQ_SOURCES = [
 ];
 var ENQ_NODATA = [
   {key:"metaads", name:"Meta ads (form)", note:"No data yet", where:"Meta form leads live in GHL / Meta Ads"},
-  {key:"googleads", name:"Google ads", note:"No data yet", where:"Google leads live in Google Ads"},
-  {key:"referrals", name:"Referrals", note:"No data yet", where:"Referrals are tracked in GHL"}
+  {key:"googleads", name:"Google ads", note:"No data yet", where:"Google leads live in Google Ads"}
 ];
+/* Referrals live in Supabase (public.referrals, loaded into REFERRALS) —
+   not in GHL. Counts below come from that table; the full list with
+   Valid / Not valid is on Patients → Referrals to check. */
+var ENQ_REFERRAL = {key:"referrals", name:"Referrals", where:"Referrals live in Supabase — see Patients → Referrals to check"};
 /* isNew: the interaction summary itself says "New patient". booked = the stored
    outcome is appointment_booked; it also flips to true when the "Booked via admin
    task" action is used — the row leaves the not-booked list and counts recompute. */
@@ -2082,7 +2094,7 @@ function enqFiltered(srcKey){
 function enqPct(b, t){ return t ? Math.round(b/t*100)+"%" : "—"; }
 function enqSourceDef(key){
   var s = null;
-  ENQ_SOURCES.concat(ENQ_NODATA).forEach(function(x){ if(x.key===key) s = x; });
+  ENQ_SOURCES.concat(ENQ_NODATA).concat([ENQ_REFERRAL]).forEach(function(x){ if(x.key===key) s = x; });
   return s;
 }
 /* ---- Enquiries not booked ----
@@ -2246,6 +2258,22 @@ function renderEnquiries(){
       + '<div class="num" style="text-align:right;color:var(--muted)">—</div>'
       + CHEV + '</div>';
   }).join("");
+  /* Referrals row — live from Supabase (REFERRALS), not GHL. The middle
+     column shows how many still need checking; Valid is the positive
+     outcome, so it sits where "Booked" sits for the AI sources. */
+  (function(){
+    var refs = REFERRALS || [];
+    var toCheck = refs.filter(function(r){ return r.status==="pending"; }).length;
+    var valid = refs.filter(function(r){ return r.status==="valid"; }).length;
+    var conv = refs.length ? Math.round(valid/refs.length*100) : null;
+    var sub = refs.length ? (toCheck + " to check · in Supabase") : "In Supabase · none yet";
+    html += '<div class="list-row clickable enq-src" data-src="referrals" style="grid-template-columns:1.6fr .7fr .7fr .8fr 24px">'
+      + '<div><div class="cell-main">Referrals</div><div class="cell-sub">'+sub+'</div></div>'
+      + '<div class="num" style="font-weight:800">'+refs.length+'</div>'
+      + '<div class="num">'+valid+'</div>'
+      + '<div class="num" style="text-align:right;font-weight:800">'+(conv===null ? "—" : conv+"%")+'</div>'
+      + CHEV + '</div>';
+  })();
   var wrap = document.getElementById("enqSources");
   wrap.innerHTML = html;
   wrap.querySelectorAll("[data-src]").forEach(function(row){
@@ -2283,6 +2311,32 @@ function renderEnqLevel2(){
   var wrap = document.getElementById("enqSrcWrap"); if(!wrap || !enqSrc) return;
   var s = enqSourceDef(enqSrc); if(!s) return;
   var tabLabel = enqTab==="new" ? "New patients" : "Existing patients";
+  if(enqSrc==="referrals"){
+    var refs = REFERRALS || [];
+    var rToCheck = refs.filter(function(r){ return r.status==="pending"; }).length;
+    var rValid = refs.filter(function(r){ return r.status==="valid"; }).length;
+    var rNotValid = refs.filter(function(r){ return r.status==="notvalid"; }).length;
+    var rKpis = [
+      {l:"Referrals", v:refs.length},
+      {l:"To check", v:rToCheck},
+      {l:"Valid", v:rValid},
+      {l:"Not valid", v:rNotValid}
+    ];
+    var rList = refs.length ? refs.map(function(r){
+      var pid = r.contact_id != null ? String(r.contact_id) : null;
+      var p = pid ? PATIENTS[pid] : null;
+      var nm = p ? escHtml(p.name) : "No contact linked";
+      var st = r.status==="valid" ? '<span class="tag green">Valid</span>' : (r.status==="notvalid" ? '<span class="tag red">Not valid</span>' : '<span class="tag amber">To check</span>');
+      return '<div class="list-row ref-grid"><div><span class="cell-main">'+nm+'</span><div class="cell-sub">'+escHtml(r.detail || "")+'</div></div><div style="font-size:14px">Referred by '+escHtml(r.referred_by || "")+'</div><div>'+st+'</div></div>';
+    }).join("") : '<div class="empty-note">No referrals yet — referrals added in Supabase will appear here.</div>';
+    wrap.innerHTML = '<div class="page-head"><div><h2 style="font-size:24px">Referrals</h2><p>Live in Supabase · '+tabLabel+' · '+rangeText()+'</p></div></div>'
+      + '<div class="kpis">' + rKpis.map(function(k){ return '<div class="kpi"><div class="k-label">'+k.l+'</div><div class="k-value num">'+k.v+'</div></div>'; }).join("") + '</div>'
+      + '<div class="list-card" style="margin-bottom:16px"><div style="padding:16px 4px 4px"><h3 style="font-size:18px">All referrals</h3><p class="nb-note" style="margin-top:6px">Mark Valid / Not valid on Patients → Referrals to check.</p></div>' + rList + '</div>'
+      + '<button class="btn primary" id="refGotoPatients" type="button">Open Patients → Referrals to check</button>';
+    var rBtn = document.getElementById("refGotoPatients");
+    if(rBtn) rBtn.addEventListener("click", function(){ enqSrc = null; document.getElementById("enqLevel2").hidden = true; document.getElementById("enqLevel1").style.display = ""; showPage("patients"); });
+    return;
+  }
   if(s.note){
     wrap.innerHTML = '<div class="page-head"><div><h2 style="font-size:24px">'+s.name+'</h2><p>'+tabLabel+' · '+rangeText()+'</p></div></div>'
       + '<div class="empty-state"><div class="big">No data yet</div></div>';
