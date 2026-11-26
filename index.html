@@ -3135,8 +3135,8 @@ function applyDeposits(rows){
   }
   rows.forEach(function(r){
     if (!r || typeof r !== "object") return;
-    var nameField = r.metric_name || r.metric || r.name || r.key || r.event_type || r.type || r.label;
-    var valField = (r.metric_value != null ? r.metric_value : (r.value != null ? r.value : (r.count != null ? r.count : r.total)));
+    var nameField = r.metric_key || r.metric_name || r.metric || r.name || r.key || r.event_type || r.type || r.label;
+    var valField = (r.all_time_count != null ? r.all_time_count : (r.metric_value != null ? r.metric_value : (r.value != null ? r.value : (r.count != null ? r.count : r.total))));
     if (nameField != null && valField != null){ classify(String(nameField) + " " + String(r.status || r.payment_status || r.deposit_status || ""), valField); return; }
     Object.keys(r).forEach(function(k){ classify(k, r[k]); });
   });
