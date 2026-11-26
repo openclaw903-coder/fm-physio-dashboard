@@ -1593,22 +1593,9 @@ function renderReferrals(){
       + '<div class="ref-actions"><button class="'+vCls+'" data-ref="'+i+'" data-verdict="valid">Valid</button><button class="'+nCls+'" data-ref="'+i+'" data-verdict="notvalid">Not valid</button></div></div>';
   }).join("");
   bindPatientClicks(wrap);
-  wrap.querySelectorAll("[data-ref]").forEach(function(btn){
-    btn.addEventListener("click", function(){
-      var r = rows[parseInt(btn.getAttribute("data-ref"),10)];
-      if(!r) return;
-      var verdict = btn.getAttribute("data-verdict");
-      clearSaveErr(btn);
-      btn.disabled = true;
-      sb.from("referrals").update({ status: verdict, decided_at: new Date().toISOString(), decided_by: adminEmail() }).eq("id", r.id).then(function(res){
-        if (res.error) throw res.error;
-        fetchLive(false); /* refresh + re-render from the saved row */
-      }).catch(function(){
-        btn.disabled = false;
-        showSaveErr(btn);
-      });
-    });
-  });
+  /* Valid / Not valid clicks are handled by the delegated save-control
+     listener in the live-data script — bound once on document, so they
+     survive every re-render of this list. */
 }
 renderReferrals();
 
@@ -1813,15 +1800,10 @@ function bindActionRows(container){
     }
     sel.addEventListener("change", sync);
     txt.addEventListener("input", sync);
-    chk.addEventListener("change", function(){
-      if(!chk.checked){ chk.checked = true; return; } /* a saved completion is not un-ticked here */
-      clearSaveErr(chk);
-      chk.disabled = true;
-      saveTaskDone(a.id, a.outcome || a.custom || null).then(function(ok){
-        if (ok){ a.done = true; renderAdmin(); fetchLive(false); }
-        else { chk.checked = false; chk.disabled = !(a.outcome || a.custom.trim()); showSaveErr(chk); }
-      });
-    });
+    /* The checkbox's save on tick is handled by the delegated
+       save-control listener in the live-data script — bound once on
+       document, so it survives every re-render of these rows. Only the
+       outcome dropdown/text sync above stays bound per render. */
   });
   bindPatientClicks(container);
   bindPhysioClicks(container);
@@ -2007,18 +1989,9 @@ function renderAdmin(){
     var bHtml = bottom.length ? bottom.slice(0, adminAllShowN).map(adminBottomRowHTML).join("") : '<div class="empty-note">No tasks in this date range.</div>';
     if (bottom.length > adminAllShowN) bHtml += '<div class="load-more-row"><button class="btn" id="adminAllMore">Load more · '+(bottom.length - adminAllShowN)+' more</button></div>';
     bottomEl.innerHTML = bHtml;
-    bottomEl.querySelectorAll(".task-done").forEach(function(btn){
-      btn.addEventListener("click", function(){
-        var a = ADMIN_ACTIONS[parseInt(btn.getAttribute("data-admin-idx"), 10)];
-        if (!a || a.done) return;
-        clearSaveErr(btn);
-        btn.disabled = true; btn.textContent = "Saving…";
-        saveTaskDone(a.id, a.outcome || a.custom || null).then(function(ok){
-          if (ok){ a.done = true; renderAdmin(); fetchLive(false); }
-          else { btn.disabled = false; btn.textContent = "Mark done"; showSaveErr(btn); }
-        });
-      });
-    });
+    /* "Mark done" clicks are handled by the delegated save-control
+       listener in the live-data script — bound once on document, so
+       they survive every re-render of this list. */
     var abm = document.getElementById("adminAllMore");
     if (abm) abm.addEventListener("click", function(){ adminAllShowN += 120; renderAdmin(); });
     bindPatientClicks(bottomEl);
@@ -2346,26 +2319,9 @@ function renderEnqLevel2(){
     + '<div class="list-head enq-bk-grid"><span>Patient</span><span>How it booked</span><span style="text-align:right">Status</span></div>'
     + bkHtml + '</div>';
   bindPatientClicks(wrap);
-  wrap.querySelectorAll("[data-book-enq]").forEach(function(btn){
-    btn.addEventListener("click", function(){
-      var id = btn.getAttribute("data-book-enq");
-      var intId = parseInt(String(id).replace(/^q/, ""), 10);
-      var e = null;
-      ENQUIRIES.forEach(function(x){ if(x.id===id) e = x; });
-      clearSaveErr(btn);
-      btn.disabled = true; btn.textContent = "Saving…";
-      /* Records the outcome on the interaction only — no appointment is
-         created here. */
-      sb.from("interactions").update({ outcome: "appointment_booked" }).eq("id", intId).then(function(res){
-        if (res.error) throw res.error;
-        if (e){ e.booked = true; e.admin = true; }
-        renderEnquiries(); /* recomputes level 1 + level 2 maths at once */
-        fetchLive(false);
-      }).catch(function(){
-        btn.disabled = false; btn.textContent = "Booked via admin task"; showSaveErr(btn);
-      });
-    });
-  });
+  /* "Booked via admin task" clicks are handled by the delegated
+     save-control listener in the live-data script — bound once on
+     document, so they survive every re-render of this drill-down. */
 }
 
 /* ================= CANCELLATIONS & DNA ================= */
@@ -3129,10 +3085,129 @@ function saveTaskDone(taskId, outcomeLabel){
   merged.outcome = outcomeLabel || null;
   merged.outcome_at = now;
   merged.outcome_by = adminEmail();
-  return sb.from("tasks").update({ status: "completed", completed_at: now, metadata: merged }).eq("id", taskId)
-    .then(function(res){ return !res.error; })
+  return sb.from("tasks").update({ status: "completed", completed_at: now, metadata: merged }).eq("id", taskId).select("id")
+    .then(function(res){ return !res.error && !!(res.data && res.data.length); })
     .catch(function(){ return false; });
 }
+
+/* ---------- delegated save controls ----------
+   All six save controls are handled by ONE pair of delegated listeners
+   on document (click + change), registered once here — never per render.
+   Because the handling lives on document, it survives every re-render
+   (Load more, the 5-minute auto-refresh, drill-down navigation): a click
+   always reaches it, no matter when the row was rendered. The click
+   listener runs in the capture phase so the Unprocessed "Mark processed"
+   button can stop the click before the row's own patient-file handler
+   sees it — exactly what its old per-button handler did with
+   stopPropagation. Each branch does precisely what the old per-render
+   handler for that control did: the same write through the same helpers,
+   the same disable + "Saving…" on attempt, the same revert + red
+   "Save failed — try again" on failure, the same live refresh on
+   success. Every write asks Supabase to return the updated row
+   (.select("id")) and treats an empty result — the write matched no
+   row — as a failure, never as a success. */
+document.addEventListener("click", function(e){
+  var t = e.target;
+  if (!t || !t.closest) return;
+  var refBtn = t.closest("[data-ref]");
+  if (refBtn){
+    var rows = REFERRALS || [];
+    var r = rows[parseInt(refBtn.getAttribute("data-ref"), 10)];
+    if (!r) return;
+    var verdict = refBtn.getAttribute("data-verdict");
+    clearSaveErr(refBtn);
+    refBtn.disabled = true;
+    sb.from("referrals").update({ status: verdict, decided_at: new Date().toISOString(), decided_by: adminEmail() }).eq("id", r.id).select("id").then(function(res){
+      if (res.error) throw res.error;
+      if (!res.data || !res.data.length) throw new Error("Save matched no row");
+      fetchLive(false); /* refresh + re-render from the saved row */
+    }).catch(function(){
+      refBtn.disabled = false;
+      showSaveErr(refBtn);
+    });
+    return;
+  }
+  var bookBtn = t.closest("[data-book-enq]");
+  if (bookBtn){
+    var id = bookBtn.getAttribute("data-book-enq");
+    var intId = parseInt(String(id).replace(/^q/, ""), 10);
+    var enq = null;
+    ENQUIRIES.forEach(function(x){ if (x.id === id) enq = x; });
+    clearSaveErr(bookBtn);
+    bookBtn.disabled = true; bookBtn.textContent = "Saving…";
+    /* Records the outcome on the interaction only — no appointment is
+       created here. */
+    sb.from("interactions").update({ outcome: "appointment_booked" }).eq("id", intId).select("id").then(function(res){
+      if (res.error) throw res.error;
+      if (!res.data || !res.data.length) throw new Error("Save matched no row");
+      if (enq){ enq.booked = true; enq.admin = true; }
+      renderEnquiries(); /* recomputes level 1 + level 2 maths at once */
+      fetchLive(false);
+    }).catch(function(){
+      bookBtn.disabled = false; bookBtn.textContent = "Booked via admin task"; showSaveErr(bookBtn);
+    });
+    return;
+  }
+  var procBtn = t.closest(".proc-btn");
+  if (procBtn){
+    e.stopPropagation();
+    var apptId = procBtn.getAttribute("data-appt-id");
+    clearSaveErr(procBtn);
+    procBtn.disabled = true; procBtn.textContent = "Saving…";
+    sb.from("appointments").update({ status: "processed" }).eq("id", apptId).select("id").then(function(res){
+      if (res.error) throw res.error;
+      if (!res.data || !res.data.length) throw new Error("Save matched no row");
+      fetchLive(false); /* the row leaves the pending list on refresh */
+    }).catch(function(){
+      procBtn.disabled = false; procBtn.textContent = "Mark processed"; showSaveErr(procBtn);
+    });
+    return;
+  }
+  var doneBtn = t.closest(".task-done");
+  if (doneBtn){
+    var a = null, viaAdminIdx = doneBtn.hasAttribute("data-admin-idx");
+    if (viaAdminIdx){
+      a = ADMIN_ACTIONS[parseInt(doneBtn.getAttribute("data-admin-idx"), 10)];
+    } else {
+      var tid = doneBtn.getAttribute("data-task-id");
+      ADMIN_ACTIONS.forEach(function(x){ if (String(x.id) === String(tid)) a = x; });
+    }
+    if (!a || a.done) return;
+    clearSaveErr(doneBtn);
+    doneBtn.disabled = true; doneBtn.textContent = "Saving…";
+    saveTaskDone(a.id, a.outcome || a.custom || null).then(function(ok){
+      if (ok){
+        a.done = true;
+        if (viaAdminIdx){ renderAdmin(); }
+        else {
+          var row = doneBtn.closest(".task-row");
+          if (row){ var tt = row.querySelector(".task-title"); if (tt) tt.classList.add("is-done"); }
+          doneBtn.textContent = "Done ✓"; doneBtn.classList.add("done-state"); doneBtn.disabled = true;
+        }
+        fetchLive(false);
+      } else {
+        doneBtn.disabled = false; doneBtn.textContent = "Mark done"; showSaveErr(doneBtn);
+      }
+    });
+    return;
+  }
+}, true);
+document.addEventListener("change", function(e){
+  var chk = e.target;
+  if (!chk || !chk.classList || !chk.classList.contains("act-check")) return;
+  var row = chk.closest(".action-row");
+  if (!row) return;
+  var kind = row.getAttribute("data-action-kind");
+  var a = (kind === "extra" ? URGENT_EXTRA : ADMIN_ACTIONS)[parseInt(row.getAttribute("data-action-idx"), 10)];
+  if (!a) return;
+  if (!chk.checked){ chk.checked = true; return; } /* a saved completion is not un-ticked here */
+  clearSaveErr(chk);
+  chk.disabled = true;
+  saveTaskDone(a.id, a.outcome || a.custom || null).then(function(ok){
+    if (ok){ a.done = true; renderAdmin(); fetchLive(false); }
+    else { chk.checked = false; chk.disabled = !(a.outcome || a.custom.trim()); showSaveErr(chk); }
+  });
+});
 
 function fetchAll(){
   var counts = {};
@@ -3515,20 +3590,9 @@ function rebuildUnproc(lists){
   }
   var moreBtn = document.getElementById("unprocMore");
   if (moreBtn) moreBtn.addEventListener("click", function(){ unprocShowN += 100; if (LIVE) rebuildUnproc(LIVE.lists); });
-  host.querySelectorAll(".proc-btn").forEach(function(btn){
-    btn.addEventListener("click", function(e){
-      e.stopPropagation();
-      var apptId = btn.getAttribute("data-appt-id");
-      clearSaveErr(btn);
-      btn.disabled = true; btn.textContent = "Saving…";
-      sb.from("appointments").update({ status: "processed" }).eq("id", apptId).then(function(res){
-        if (res.error) throw res.error;
-        fetchLive(false); /* the row leaves the pending list on refresh */
-      }).catch(function(){
-        btn.disabled = false; btn.textContent = "Mark processed"; showSaveErr(btn);
-      });
-    });
-  });
+  /* "Mark processed" clicks are handled by the delegated save-control
+     listener below — bound once on document, so they survive every
+     rebuild of this list. */
   bindPatientClicks(host);
 }
 /* Admin Today "Unprocessed appointments" panel — every pending appointment is
@@ -3599,27 +3663,9 @@ function rebuildTaskPanels(lists){
       var link = a.pid ? ' \u00b7 <button class="link-btn" style="padding:0;min-height:0" data-patient-link="' + a.pid + '">Patient file</button>' : " \u00b7 No contact linked";
       return '<div class="task-row"><div class="task-body"><div class="task-title">' + esc(a.action) + " \u2014 " + esc(a.why) + " " + prio + '</div><div class="task-meta">Type: ' + esc(a.action.toLowerCase().replace(/ /g, "_")) + " \u00b7 " + a.dueLabel + link + '</div></div><button class="btn small task-done" data-task-id="' + a.id + '">Mark done</button></div>';
     }).join("") : '<div class="empty-note">No data yet</div>';
-    el.querySelectorAll(".task-done").forEach(function(btn){
-      btn.addEventListener("click", function(){
-        var id = btn.getAttribute("data-task-id");
-        var a = null;
-        ADMIN_ACTIONS.forEach(function(x){ if (String(x.id) === String(id)) a = x; });
-        if (!a || a.done) return;
-        clearSaveErr(btn);
-        btn.disabled = true; btn.textContent = "Saving…";
-        saveTaskDone(a.id, a.outcome || a.custom || null).then(function(ok){
-          if (ok){
-            a.done = true;
-            var row = btn.closest(".task-row");
-            if (row) row.querySelector(".task-title").classList.add("is-done");
-            btn.textContent = "Done \u2713"; btn.classList.add("done-state"); btn.disabled = true;
-            fetchLive(false);
-          } else {
-            btn.disabled = false; btn.textContent = "Mark done"; showSaveErr(btn);
-          }
-        });
-      });
-    });
+    /* "Mark done" clicks are handled by the delegated save-control
+       listener above — bound once on document, so they survive every
+       rebuild of this list. */
     bindPatientClicks(el);
   }
   typeHtml("teamTypeList", 210);
@@ -3783,7 +3829,12 @@ function fetchLive(first){
     if (firstLoad) showAssistTip();
     var now = new Date();
     setStatus("Updated " + ("0" + now.getHours()).slice(-2) + ":" + ("0" + now.getMinutes()).slice(-2));
-    if (!refreshTimer) refreshTimer = setInterval(function(){ fetchLive(false); }, 5 * 60 * 1000);
+    if (!refreshTimer) refreshTimer = setInterval(function(){
+      /* Never auto-refresh while signed out — an unauthenticated fetch
+         only earns 401s. The tick is skipped unless a session exists. */
+      if (!sb || document.body.classList.contains("locked")) return;
+      sb.auth.getSession().then(function(res){ if (res.data && res.data.session) fetchLive(false); }).catch(function(){});
+    }, 5 * 60 * 1000);
   }).catch(function(){
     if (!liveLoaded) { document.body.classList.add("locked"); showView("error"); }
     else { setStatus("Couldn\u2019t load live data — check your connection and try again"); }
