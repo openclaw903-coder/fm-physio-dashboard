@@ -1878,6 +1878,14 @@ function adminStats(){
   var completed = onTime + late;
   var open = inR.filter(function(a){ return !a.done; });
   var overdue = open.filter(function(a){ return a.dueISO && a.dueISO < TODAY_ISO; }).length;
+  /* Carried over (option C): open tasks created yesterday — yesterday is
+     the Europe/London calendar date of (today minus 1 day), and each
+     task's created date is its London date (createdISO, set from
+     londonISO(created_at) in applyLiveData), so the count agrees for
+     every viewer in any timezone. Counted across all open tasks, not
+     just those in the current due-date range. */
+  var yesterdayISO = isoAdd(TODAY_ISO, -1);
+  var carriedCount = ADMIN_ACTIONS.filter(function(a){ return !a.done && a.createdISO === yesterdayISO; }).length;
   return {
     inR: inR,
     completed: completed,
@@ -1886,7 +1894,7 @@ function adminStats(){
     notCompleted: open.length,
     overdue: overdue,
     cancelled: CANCELLED_TASKS.filter(function(t){ return inRange(t.doneISO); }).length,
-    carried: open.filter(function(a){ return a.carried; }).length,
+    carried: carriedCount,
     dueToday: open.filter(function(a){ return a.dueISO === TODAY_ISO; }).length,
     chosen: inR.filter(function(a){ return !a.done && (a.outcome || a.custom.trim()); }).length
   };
@@ -2021,7 +2029,7 @@ function renderAdminCountsOnly(){
    elsewhere) — carries its ADMIN_ACTIONS index so Mark done hits the
    same task object the other lists use. */
 function adminBottomRowHTML(a){
-  var prio = a.priority === "urgent" ? '<span class="prio high">URGENT</span>' : '<span class="prio med">NORMAL</span>';
+  var prio = a.priority === "urgent" ? '<span class="prio high">URGENT</span>' : "";
   var link = a.pid ? ' \u00b7 <button class="link-btn" style="padding:0;min-height:0" data-patient-link="' + a.pid + '">Patient file</button>' : " \u00b7 No contact linked";
   var btn = a.done
     ? '<button class="btn small done-state" disabled>Done \u2713</button>'
@@ -3146,11 +3154,12 @@ function applyLiveData(data){
     var dueRaw = t.due_at || t.created_at || "";
     var dueISO = londonISO(dueRaw) || dueRaw.slice(0,10);
     var doneISO = londonISO(t.completed_at || t.created_at || "") || (t.completed_at || t.created_at || "").slice(0,10);
+    var createdISO = londonISO(t.created_at || "") || (t.created_at || "").slice(0,10);
     var item = { id: t.id, pid: pidOf(t.contact_id), patient: nameOf(t.contact_id),
       status: (t.status === "open" && dueISO && dueISO < TODAY_ISO) ? "overdue" : "today",
-      dueLabel: fmtDay(dueRaw), dueISO: dueISO, createdISO: (t.created_at || "").slice(0,10),
+      dueLabel: fmtDay(dueRaw), dueISO: dueISO, createdISO: createdISO,
       priority: (t.priority === "urgent" || t.priority === "high") ? "urgent" : "normal",
-      carried: false, done: t.status !== "open", outcome: "", custom: "",
+      carried: t.status === "open" && createdISO === isoAdd(TODAY_ISO, -1), done: t.status !== "open", outcome: "", custom: "",
       action: stripMarkup(humanize(t.task_type || "Task")), why: stripMarkup(trunc(t.title || "", 170)) };
     if (t.status === "open") ADMIN_ACTIONS.push(item);
     else if (t.status === "completed") COMPLETED_TASKS.push({ pid: item.pid, patient: item.patient, dueISO: dueISO, doneISO: doneISO });
@@ -3389,7 +3398,7 @@ function rebuildTaskPanels(lists){
     var el = document.getElementById(elId); if (!el) return;
     var rows = ADMIN_ACTIONS.slice(0, 6);
     el.innerHTML = rows.length ? rows.map(function(a){
-      var prio = a.priority === "urgent" ? '<span class="prio high">URGENT</span>' : '<span class="prio med">NORMAL</span>';
+      var prio = a.priority === "urgent" ? '<span class="prio high">URGENT</span>' : "";
       var link = a.pid ? ' \u00b7 <button class="link-btn" style="padding:0;min-height:0" data-patient-link="' + a.pid + '">Patient file</button>' : " \u00b7 No contact linked";
       return '<div class="task-row"><div class="task-body"><div class="task-title">' + esc(a.action) + " \u2014 " + esc(a.why) + " " + prio + '</div><div class="task-meta">Type: ' + esc(a.action.toLowerCase().replace(/ /g, "_")) + " \u00b7 " + a.dueLabel + link + '</div></div><button class="btn small task-done">Mark done</button></div>';
     }).join("") : '<div class="empty-note">No data yet</div>';
