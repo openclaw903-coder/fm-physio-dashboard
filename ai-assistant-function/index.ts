@@ -14,7 +14,7 @@
 //   it. Anyone holding the dashboard link could open Settings and replace the
 //   key (they still could never READ the saved key). Add a PIN gate later if
 //   the link is shared more widely.
-// - CORS allows only the Vercel dashboard origin and the Muse preview origin.
+// - CORS allows only the dashboard origins (Vercel, GitHub Pages) and the Muse preview origin.
 // - Best-effort per-IP rate limit (20 req/min) so the key cannot be drained
 //   by hammering the public endpoint.
 
@@ -26,6 +26,8 @@ const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
 const ALLOWED_ORIGINS = new Set([
   "https://fm-physio-dashboard-iota.vercel.app",
+  "https://fm-physio-dashboard-zol1.vercel.app",
+  "https://openclaw903-coder.github.io",
   "https://muse.ai",
 ]);
 
@@ -45,7 +47,7 @@ function corsHeaders(req: Request) {
   return {
     "Access-Control-Allow-Origin": ALLOWED_ORIGINS.has(origin)
       ? origin
-      : "https://fm-physio-dashboard-iota.vercel.app",
+      : "https://fm-physio-dashboard-zol1.vercel.app",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
   };
