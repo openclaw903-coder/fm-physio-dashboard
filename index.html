@@ -445,6 +445,7 @@ h1,h2,h3{font-family:"Fraunces",Georgia,serif;font-weight:600;line-height:1.15;m
 /* Referrals */
 .ref-grid{grid-template-columns:1.1fr 1.3fr auto}
 .ref-actions{display:flex;gap:8px;align-items:center}
+.save-err{color:var(--red);font-size:12.5px;font-weight:700;padding:2px 4px 8px}
 .ref-btn{border-radius:99px;padding:5px 16px;min-height:34px;font-size:13.5px;font-weight:800;background:var(--surface);cursor:pointer;font:inherit}
 .ref-btn.valid{border:1.5px solid #7A9A5B;color:#5C7A41}
 .ref-btn.notvalid{border:1.5px solid var(--red);color:var(--red)}
@@ -1557,32 +1558,55 @@ document.querySelectorAll("#patientPills .pill").forEach(function(b){
 renderPatients("all","");
 
 /* ================= REFERRALS TO CHECK ================= */
-/* Referrals are not in the Supabase snapshot (they are tracked in GHL), so this list is empty. */
+/* Referrals live in the public.referrals table and are fetched with the
+   rest of the live data (lists.referrals, loaded into REFERRALS by
+   applyLiveData). Valid / Not valid writes the verdict back to that
+   table first; the list only changes once Supabase has accepted it. */
 var REFERRALS = [];
 
 function renderReferrals(){
   var wrap = document.getElementById("refList"); if(!wrap) return;
-  var toCheck = REFERRALS.filter(function(r){ return r.status==="pending"; }).length;
-  var valid = REFERRALS.filter(function(r){ return r.status==="valid"; }).length;
-  var notValid = REFERRALS.filter(function(r){ return r.status==="notvalid"; }).length;
-  var sum = REFERRALS.length + " referrals · " + toCheck + " to check";
+  var rows = REFERRALS || [];
+  var toCheck = rows.filter(function(r){ return r.status==="pending"; }).length;
+  var valid = rows.filter(function(r){ return r.status==="valid"; }).length;
+  var notValid = rows.filter(function(r){ return r.status==="notvalid"; }).length;
+  var sum = rows.length + " referrals · " + toCheck + " to check";
   if(valid) sum += " · " + valid + " valid";
   if(notValid) sum += " · " + notValid + " not valid";
   document.getElementById("refSummary").textContent = sum;
-  wrap.innerHTML = REFERRALS.map(function(r, i){
+  if(!rows.length){
+    wrap.innerHTML = '<div class="empty-note">No referrals yet</div>';
+    return;
+  }
+  wrap.innerHTML = rows.map(function(r, i){
+    var pid = r.contact_id != null ? String(r.contact_id) : null;
+    var p = pid ? PATIENTS[pid] : null;
+    var name = p ? p.name : "No contact linked";
+    var nameHtml = pid
+      ? '<button class="link-btn cell-main" style="padding:0;min-height:0;text-align:left" data-patient-link="'+pid+'">'+escHtml(name)+'</button>'
+      : '<span class="cell-main">'+escHtml(name)+'</span>';
     var vCls = "ref-btn valid" + (r.status==="valid" ? " on" : "") + (r.status==="notvalid" ? " off" : "");
     var nCls = "ref-btn notvalid" + (r.status==="notvalid" ? " on" : "") + (r.status==="valid" ? " off" : "");
     return '<div class="list-row ref-grid">'
-      + '<div><button class="link-btn cell-main" style="padding:0;min-height:0;text-align:left" data-patient-link="'+r.pid+'">'+escHtml(r.patient)+'</button><div class="cell-sub">'+escHtml(r.detail)+'</div></div>'
-      + '<div style="font-size:14px">Referred by '+escHtml(r.by)+'</div>'
+      + '<div>'+nameHtml+'<div class="cell-sub">'+escHtml(r.detail || "")+'</div></div>'
+      + '<div style="font-size:14px">Referred by '+escHtml(r.referred_by || "")+'</div>'
       + '<div class="ref-actions"><button class="'+vCls+'" data-ref="'+i+'" data-verdict="valid">Valid</button><button class="'+nCls+'" data-ref="'+i+'" data-verdict="notvalid">Not valid</button></div></div>';
   }).join("");
   bindPatientClicks(wrap);
   wrap.querySelectorAll("[data-ref]").forEach(function(btn){
     btn.addEventListener("click", function(){
-      var r = REFERRALS[parseInt(btn.getAttribute("data-ref"),10)];
-      r.status = btn.getAttribute("data-verdict");
-      renderReferrals();
+      var r = rows[parseInt(btn.getAttribute("data-ref"),10)];
+      if(!r) return;
+      var verdict = btn.getAttribute("data-verdict");
+      clearSaveErr(btn);
+      btn.disabled = true;
+      sb.from("referrals").update({ status: verdict, decided_at: new Date().toISOString(), decided_by: adminEmail() }).eq("id", r.id).then(function(res){
+        if (res.error) throw res.error;
+        fetchLive(false); /* refresh + re-render from the saved row */
+      }).catch(function(){
+        btn.disabled = false;
+        showSaveErr(btn);
+      });
     });
   });
 }
@@ -1658,24 +1682,6 @@ window.addEventListener("pageshow", function(){ searchBox.value = ""; });
 searchBox.addEventListener("input", function(e){
   showPage("patients");
   renderPatients(patientFilter, e.target.value);
-});
-
-/* ================= TASKS & UNPROCESSED ================= */
-document.querySelectorAll(".task-done").forEach(function(btn){
-  btn.addEventListener("click", function(){
-    var row = btn.closest(".task-row");
-    row.querySelector(".task-title").classList.add("is-done");
-    btn.textContent = "Done ✓"; btn.classList.add("done-state"); btn.disabled = true;
-  });
-});
-document.querySelectorAll(".proc-btn").forEach(function(btn){
-  btn.addEventListener("click", function(){
-    var row = btn.closest(".list-row");
-    row.style.opacity = ".45";
-    btn.textContent = "Processed ✓"; btn.classList.add("done-state"); btn.disabled = true;
-    var left = document.querySelectorAll("#unprocCard .proc-btn:not(:disabled)").length;
-    document.getElementById("unprocEmpty").classList.toggle("hidden-row", left>0);
-  });
 });
 
 /* ================= CONVERSATIONS (chat view) ================= */
@@ -1783,7 +1789,7 @@ function actionRowHTML(a, kind, idx){
   var opts = '<option value="">Choose outcome</option>' + OUTCOME_OPTIONS.map(function(o){ return '<option'+(a.outcome===o?" selected":"")+'>'+o+'</option>'; }).join("");
   var canComplete = !!(a.outcome || a.custom.trim());
   return '<div class="action-row'+(a.done?" is-done":"")+'" data-action-kind="'+kind+'" data-action-idx="'+idx+'">'
-    + '<input type="checkbox" class="act-check" aria-label="Mark complete" '+(a.done?"checked":"")+(canComplete?"":" disabled")+' />'
+    + '<input type="checkbox" class="act-check" aria-label="Mark complete" '+(a.done?"checked disabled":(canComplete?"":" disabled"))+' />'
     + '<div>'+badge+'</div>'
     + '<div>'+name+'</div>'
     + '<div class="a-action">'+escHtml(a.action)+'</div>'
@@ -1807,7 +1813,15 @@ function bindActionRows(container){
     }
     sel.addEventListener("change", sync);
     txt.addEventListener("input", sync);
-    chk.addEventListener("change", function(){ a.done = chk.checked; renderAdmin(); });
+    chk.addEventListener("change", function(){
+      if(!chk.checked){ chk.checked = true; return; } /* a saved completion is not un-ticked here */
+      clearSaveErr(chk);
+      chk.disabled = true;
+      saveTaskDone(a.id, a.outcome || a.custom || null).then(function(ok){
+        if (ok){ a.done = true; renderAdmin(); fetchLive(false); }
+        else { chk.checked = false; chk.disabled = !(a.outcome || a.custom.trim()); showSaveErr(chk); }
+      });
+    });
   });
   bindPatientClicks(container);
   bindPhysioClicks(container);
@@ -1996,7 +2010,13 @@ function renderAdmin(){
     bottomEl.querySelectorAll(".task-done").forEach(function(btn){
       btn.addEventListener("click", function(){
         var a = ADMIN_ACTIONS[parseInt(btn.getAttribute("data-admin-idx"), 10)];
-        if (a){ a.done = true; renderAdmin(); }
+        if (!a || a.done) return;
+        clearSaveErr(btn);
+        btn.disabled = true; btn.textContent = "Saving…";
+        saveTaskDone(a.id, a.outcome || a.custom || null).then(function(ok){
+          if (ok){ a.done = true; renderAdmin(); fetchLive(false); }
+          else { btn.disabled = false; btn.textContent = "Mark done"; showSaveErr(btn); }
+        });
       });
     });
     var abm = document.getElementById("adminAllMore");
@@ -2329,8 +2349,21 @@ function renderEnqLevel2(){
   wrap.querySelectorAll("[data-book-enq]").forEach(function(btn){
     btn.addEventListener("click", function(){
       var id = btn.getAttribute("data-book-enq");
-      ENQUIRIES.forEach(function(e){ if(e.id===id){ e.booked = true; e.admin = true; } });
-      renderEnquiries(); /* recomputes level 1 + level 2 maths at once */
+      var intId = parseInt(String(id).replace(/^q/, ""), 10);
+      var e = null;
+      ENQUIRIES.forEach(function(x){ if(x.id===id) e = x; });
+      clearSaveErr(btn);
+      btn.disabled = true; btn.textContent = "Saving…";
+      /* Records the outcome on the interaction only — no appointment is
+         created here. */
+      sb.from("interactions").update({ outcome: "appointment_booked" }).eq("id", intId).then(function(res){
+        if (res.error) throw res.error;
+        if (e){ e.booked = true; e.admin = true; }
+        renderEnquiries(); /* recomputes level 1 + level 2 maths at once */
+        fetchLive(false);
+      }).catch(function(){
+        btn.disabled = false; btn.textContent = "Booked via admin task"; showSaveErr(btn);
+      });
     });
   });
 }
@@ -3046,6 +3079,61 @@ function fetchViewRows(table, cols, orderCol){
   return next(0).catch(function(){ return null; });
 }
 
+/* ---------- write-back helpers ----------
+   Every state-changing action writes to Supabase FIRST, with the
+   signed-in admin's session (the same sb client as the reads). The
+   screen only changes after the write succeeds, and the live data is
+   then refreshed the same way it loads on login (fetchLive). On
+   failure nothing is marked done: the control returns to its previous
+   state, stays enabled for retry, and a short red message appears
+   under its row. */
+function adminEmail(){
+  var em = document.getElementById("sidebarUserEmail");
+  return em ? (em.textContent || "").trim() : "";
+}
+function saveErrEl(anchor){
+  var row = anchor ? anchor.closest(".action-row, .list-row, .task-row") : null;
+  if (!row || !row.parentElement) return null;
+  var s = row.nextElementSibling;
+  if (!s || !s.classList || !s.classList.contains("save-err")){
+    s = document.createElement("div");
+    s.className = "save-err";
+    row.parentElement.insertBefore(s, row.nextSibling);
+  }
+  return s;
+}
+function showSaveErr(anchor){
+  var s = saveErrEl(anchor);
+  if (s) s.textContent = "Save failed — try again";
+}
+function clearSaveErr(anchor){
+  var row = anchor ? anchor.closest(".action-row, .list-row, .task-row") : null;
+  if (!row) return;
+  var s = row.nextElementSibling;
+  if (s && s.classList && s.classList.contains("save-err")) s.remove();
+}
+/* The ONE task-completion helper, shared by the Admin Today outcome
+   checkbox, the Admin Today "Mark done" button and the Overview
+   "Mark done" button. Tasks have no outcome column, so the outcome is
+   merged into the task's existing metadata (every existing key kept),
+   alongside who recorded it and when. Resolves true only when
+   Supabase accepted the write. */
+function saveTaskDone(taskId, outcomeLabel){
+  if (!sb || taskId == null) return Promise.resolve(false);
+  var task = null;
+  ADMIN_ACTIONS.forEach(function(a){ if (String(a.id) === String(taskId)) task = a; });
+  var now = new Date().toISOString();
+  var merged = {};
+  var cur = (task && task.metadata && typeof task.metadata === "object") ? task.metadata : {};
+  Object.keys(cur).forEach(function(k){ merged[k] = cur[k]; });
+  merged.outcome = outcomeLabel || null;
+  merged.outcome_at = now;
+  merged.outcome_by = adminEmail();
+  return sb.from("tasks").update({ status: "completed", completed_at: now, metadata: merged }).eq("id", taskId)
+    .then(function(res){ return !res.error; })
+    .catch(function(){ return false; });
+}
+
 function fetchAll(){
   var counts = {};
   var jobs = [];
@@ -3060,13 +3148,14 @@ function fetchAll(){
   C("interactions","interactions"); C("sequences","sequence_instances");
 
   var lists = {};
-  var TASK_COLS = "id,contact_id,task_type,title,status,priority,created_at,due_at,completed_at";
+  var TASK_COLS = "id,contact_id,task_type,title,status,priority,created_at,due_at,completed_at,metadata";
   var APPT_COLS = "id,contact_id,practitioner_id,status,starts_at,cancel_reason,cancel_date";
   var listJobs = [
     listAll("contacts","id,first_name,last_name,email,phone_e164,dnc,created_at","created_at",false).then(function(d){ lists.contacts = d; }),
     listAll("tasks",TASK_COLS,"created_at",false).then(function(d){ lists.tasks = d; }),
     listAll("appointments",APPT_COLS,"starts_at",false).then(function(d){ lists.appts = d; }),
     listAll("interactions","id,contact_id,provider,channel,direction,outcome,summary,created_at","created_at",false).then(function(d){ lists.interactions = d; }),
+    listAll("referrals","id,contact_id,referred_by,detail,status,created_at","created_at",false).then(function(d){ lists.referrals = d; }),
     listQ("dashboard_monthly_performance","report_month,attended,no_shows,cancellations","report_month",true,12).then(function(d){ lists.monthly = d; }),
     listAll("sequence_instances","id,contact_id,sequence_key,status,created_at","created_at",false).then(function(d){ lists.sequences = d; }),
     listQ("practicehub_practitioners","practitioner_id,name,active",null,false,50).then(function(d){ lists.practitioners = d; }),
@@ -3233,7 +3322,7 @@ function applyLiveData(data){
       slaOverdue: slaOverdue,
       dueLabel: fmtDay(dueRaw), dueISO: dueISO, createdISO: createdISO,
       priority: (t.priority === "urgent" || t.priority === "high") ? "urgent" : "normal",
-      carried: t.status === "open" && createdISO === isoAdd(TODAY_ISO, -1), done: t.status !== "open", outcome: "", custom: "",
+      carried: t.status === "open" && createdISO === isoAdd(TODAY_ISO, -1), done: t.status !== "open", outcome: "", custom: "", metadata: t.metadata || {},
       action: stripMarkup(humanize(t.task_type || "Task")), why: stripMarkup(trunc(t.title || "", 170)) };
     if (t.status === "open") ADMIN_ACTIONS.push(item);
     else if (t.status === "completed") COMPLETED_TASKS.push({ pid: item.pid, patient: item.patient, dueISO: dueISO, doneISO: doneISO });
@@ -3404,6 +3493,8 @@ function applyLiveData(data){
   rebuildUnprocByPhysio(lists, counts);
   rebuildAdminDncMini(lists.contacts || []);
   rebuildTaskPanels(lists);
+  REFERRALS = lists.referrals || [];
+  renderReferrals();
 }
 
 var unprocShowN = 100;
@@ -3419,7 +3510,7 @@ function rebuildUnproc(lists){
       var nm = p ? esc(p.name) : "No contact linked";
       var main = p ? '<div class="cell-main">' + nm + "</div>" : '<div class="cell-main" style="font-weight:600">' + nm + "</div>";
       var attrs = p ? ' class="list-row clickable" data-patient="' + a.contact_id + '"' : ' class="list-row"';
-      return "<div" + attrs + ' style="grid-template-columns:1.5fr 1.2fr 1.2fr .8fr"><div>' + main + '</div><div class="cell-sub">' + fmtWhen(a.starts_at) + '</div><div class="cell-sub">' + esc(pracName[a.practitioner_id] || "") + '</div><div style="text-align:right"><button class="btn small primary proc-btn">Mark processed</button></div></div>';
+      return "<div" + attrs + ' style="grid-template-columns:1.5fr 1.2fr 1.2fr .8fr"><div>' + main + '</div><div class="cell-sub">' + fmtWhen(a.starts_at) + '</div><div class="cell-sub">' + esc(pracName[a.practitioner_id] || "") + '</div><div style="text-align:right"><button class="btn small primary proc-btn" data-appt-id="' + a.id + '">Mark processed</button></div></div>';
     }).join("") + (pend.length > unprocShowN ? '<div class="load-more-row"><button class="btn" id="unprocMore">Load more · ' + fmtNum(pend.length - unprocShowN) + " more</button></div>" : "");
   }
   var moreBtn = document.getElementById("unprocMore");
@@ -3427,11 +3518,15 @@ function rebuildUnproc(lists){
   host.querySelectorAll(".proc-btn").forEach(function(btn){
     btn.addEventListener("click", function(e){
       e.stopPropagation();
-      var row = btn.closest(".list-row");
-      if (row) row.style.opacity = ".45";
-      btn.textContent = "Processed \u2713"; btn.classList.add("done-state"); btn.disabled = true;
-      var left = document.querySelectorAll("#unprocCard .proc-btn:not(:disabled)").length;
-      document.getElementById("unprocEmpty").classList.toggle("hidden-row", left > 0);
+      var apptId = btn.getAttribute("data-appt-id");
+      clearSaveErr(btn);
+      btn.disabled = true; btn.textContent = "Saving…";
+      sb.from("appointments").update({ status: "processed" }).eq("id", apptId).then(function(res){
+        if (res.error) throw res.error;
+        fetchLive(false); /* the row leaves the pending list on refresh */
+      }).catch(function(){
+        btn.disabled = false; btn.textContent = "Mark processed"; showSaveErr(btn);
+      });
     });
   });
   bindPatientClicks(host);
@@ -3502,13 +3597,27 @@ function rebuildTaskPanels(lists){
     el.innerHTML = rows.length ? rows.map(function(a){
       var prio = a.priority === "urgent" ? '<span class="prio high">URGENT</span>' : "";
       var link = a.pid ? ' \u00b7 <button class="link-btn" style="padding:0;min-height:0" data-patient-link="' + a.pid + '">Patient file</button>' : " \u00b7 No contact linked";
-      return '<div class="task-row"><div class="task-body"><div class="task-title">' + esc(a.action) + " \u2014 " + esc(a.why) + " " + prio + '</div><div class="task-meta">Type: ' + esc(a.action.toLowerCase().replace(/ /g, "_")) + " \u00b7 " + a.dueLabel + link + '</div></div><button class="btn small task-done">Mark done</button></div>';
+      return '<div class="task-row"><div class="task-body"><div class="task-title">' + esc(a.action) + " \u2014 " + esc(a.why) + " " + prio + '</div><div class="task-meta">Type: ' + esc(a.action.toLowerCase().replace(/ /g, "_")) + " \u00b7 " + a.dueLabel + link + '</div></div><button class="btn small task-done" data-task-id="' + a.id + '">Mark done</button></div>';
     }).join("") : '<div class="empty-note">No data yet</div>';
     el.querySelectorAll(".task-done").forEach(function(btn){
       btn.addEventListener("click", function(){
-        var row = btn.closest(".task-row");
-        row.querySelector(".task-title").classList.add("is-done");
-        btn.textContent = "Done \u2713"; btn.classList.add("done-state"); btn.disabled = true;
+        var id = btn.getAttribute("data-task-id");
+        var a = null;
+        ADMIN_ACTIONS.forEach(function(x){ if (String(x.id) === String(id)) a = x; });
+        if (!a || a.done) return;
+        clearSaveErr(btn);
+        btn.disabled = true; btn.textContent = "Saving…";
+        saveTaskDone(a.id, a.outcome || a.custom || null).then(function(ok){
+          if (ok){
+            a.done = true;
+            var row = btn.closest(".task-row");
+            if (row) row.querySelector(".task-title").classList.add("is-done");
+            btn.textContent = "Done \u2713"; btn.classList.add("done-state"); btn.disabled = true;
+            fetchLive(false);
+          } else {
+            btn.disabled = false; btn.textContent = "Mark done"; showSaveErr(btn);
+          }
+        });
       });
     });
     bindPatientClicks(el);
