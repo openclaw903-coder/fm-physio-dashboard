@@ -1397,7 +1397,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
 
 <script>
 function escHtml(s){ return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
-/* The 16 gated pages — keys match user_page_access.page exactly. */
+/* The 16 gated pages — keys match user_page_access.page_key exactly. */
 var PAGE_DEFS = [
   {key:"overview", label:"Overview"},
   {key:"owner-overview", label:"Owner Overview"},
@@ -4064,7 +4064,13 @@ function todayLondon(){
 /* ---------- multi-user access (owner + users) ---------- */
 /* After login, read the signed-in user's admin_users row (role, active)
    and their user_page_access rows, and keep them in the global ACCESS
-   session state. The owner always has all 16 pages. */
+   session state. The owner always has all 16 pages.
+   SCHEMA (verified against the live project): admin_users is keyed by
+   user_id (the auth UUID) and has NO id and NO email column;
+   user_page_access stores the page in page_key (not page). Querying
+   the old column names made PostgREST error on every login, and the
+   error was read as "no row" — so even the owner landed on the
+   Access not granted screen. */
 var accessLoading = false;
 function loadUserAccess(){
   if (!sb) return Promise.resolve(false);
@@ -4074,13 +4080,13 @@ function loadUserAccess(){
     var user = session.user;
     function withRow(row){
       if (!row) return false;
-      var role = row.role || "user";
+      var role = String(row.role || "user").trim().toLowerCase();
       var activeVal = (row.active != null ? row.active : (row.is_active != null ? row.is_active : true));
       ACCESS.role = role;
       ACCESS.isOwner = role === "owner";
-      ACCESS.active = activeVal !== false;
-      ACCESS.userId = row.id || user.id;
-      ACCESS.email = row.email || user.email || "";
+      ACCESS.active = !(activeVal === false || activeVal === "false" || activeVal === 0);
+      ACCESS.userId = row.user_id || row.id || user.id;
+      ACCESS.email = user.email || row.email || "";
       if (!ACCESS.active){
         ACCESS.loaded = true;
         applySidebarAccess();
@@ -4094,10 +4100,10 @@ function loadUserAccess(){
         applySidebarAccess();
         return true;
       }
-      var uid = row.id || user.id;
-      return sb.from("user_page_access").select("page,allowed").eq("user_id", uid).then(function(r2){
+      var uid = row.user_id || row.id || user.id;
+      return sb.from("user_page_access").select("page_key,allowed").eq("user_id", uid).then(function(r2){
         var allowed = new Set();
-        if (!r2.error && r2.data) r2.data.forEach(function(pr){ if (pr.allowed) allowed.add(pr.page); });
+        if (!r2.error && r2.data) r2.data.forEach(function(pr){ if (pr.allowed) allowed.add(pr.page_key); });
         ACCESS.allowed = allowed;
         ACCESS.loaded = true;
         applySidebarAccess();
@@ -4109,10 +4115,30 @@ function loadUserAccess(){
         return true;
       });
     }
-    return sb.from("admin_users").select("*").eq("id", user.id).maybeSingle().then(function(r){
+    /* Fallback: ask the admin-users Edge Function (service role,
+       JWT-verified) who the caller is. Used only when the direct
+       admin_users read returns no row — e.g. the signed-in client
+       cannot see the table — so the owner is never locked out by a
+       failed table read. The caller's own entry must be present in
+       the returned list; anything else keeps the no-access path. */
+    function accessViaFunction(){
+      return adminFn({ action: "list_users" }).then(function(data){
+        var users = data.users || data.data || (Array.isArray(data) ? data : []);
+        var me = null;
+        users.forEach(function(u){
+          if (me) return;
+          var uid = u.user_id || u.id || "";
+          if ((uid && uid === user.id) || (u.email && user.email && String(u.email).toLowerCase() === String(user.email).toLowerCase())) me = u;
+        });
+        if (!me) return null;
+        return withRow({ user_id: me.user_id || me.id || user.id, role: me.role,
+          active: (me.active != null ? me.active : me.is_active) });
+      }).catch(function(){ return null; });
+    }
+    return sb.from("admin_users").select("*").eq("user_id", user.id).maybeSingle().then(function(r){
       if (!r.error && r.data) return withRow(r.data);
-      return sb.from("admin_users").select("*").eq("email", user.email || "").maybeSingle().then(function(r2){
-        if (!r2.error && r2.data) return withRow(r2.data);
+      return accessViaFunction().then(function(ok){
+        if (ok != null) return ok;
         /* No admin_users row at all — keep the existing no-access path. */
         ACCESS.loaded = true; ACCESS.role = "user"; ACCESS.isOwner = false; ACCESS.allowed = new Set();
         applySidebarAccess();
