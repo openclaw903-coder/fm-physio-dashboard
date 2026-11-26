@@ -842,9 +842,9 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
           <div class="kpi"><div class="k-label">No-shows (DNA)</div><div class="k-value num" id="apMissed">—</div><div class="k-sub" id="apMissedSub"></div></div>
         </div>
         <div class="kpis kpis-3">
-          <div class="kpi"><div class="k-label">Paid</div><div class="k-value num">—</div><div class="k-sub">Deposits · no data yet</div></div>
-          <div class="kpi"><div class="k-label">Slot released</div><div class="k-value num">—</div><div class="k-sub">Deposits · no data yet</div></div>
-          <div class="kpi"><div class="k-label">Not paid</div><div class="k-value num">—</div><div class="k-sub">Deposits · no data yet</div></div>
+          <div class="kpi"><div class="k-label">Paid</div><div class="k-value num" id="apDepPaid">—</div><div class="k-sub">GHL payment workflow events · all time</div></div>
+          <div class="kpi"><div class="k-label">Slot released</div><div class="k-value num" id="apDepReleased">—</div><div class="k-sub">GHL payment workflow events · all time</div></div>
+          <div class="kpi"><div class="k-label">Not paid</div><div class="k-value num" id="apDepNotPaid">—</div><div class="k-sub">GHL payment workflow events · all time</div></div>
         </div>
         <div class="toolbar">
           <div class="pills" id="apptPills">
@@ -1011,7 +1011,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
           <div class="kpi"><div class="k-label">Estimated lost revenue</div><div class="k-value num" id="cxLostRev">—</div><div class="k-sub">est. at £75 initial-assessment rate (brief) · upper estimate — follow-ups are £55</div></div>
           <div class="kpi"><div class="k-label">Cancellations</div><div class="k-value num" id="cxCanc">—</div><div class="k-sub">All time</div></div>
           <div class="kpi"><div class="k-label">DNAs (no-shows)</div><div class="k-value num" id="cxDna">—</div><div class="k-sub">All time</div></div>
-          <div class="kpi"><div class="k-label">Rebooked</div><div class="k-value num" id="cxRebooked">—</div><div class="k-sub">of the rows listed below</div></div>
+          <div class="kpi"><div class="k-label">Rebooked</div><div class="k-value num" id="cxRebooked">—</div><div class="k-sub">Of cancellations &amp; DNAs in this date range</div></div>
         </div>
         <p class="nb-note">If a patient rebooks, their follow-up sequence updates and stops.</p>
         <div class="panel" style="margin-bottom:22px">
@@ -1753,20 +1753,29 @@ var PHYSIO_TASKS = [];
 var PHYSIO_WEEK = [];
 
 function ageHours(iso){ var a = new Date(TODAY_ISO+"T09:00:00"), b = new Date(iso+"T09:00:00"); return Math.round((a-b)/3600000); }
+/* Overdue now comes from the SLA view (is_overdue) when a task has an
+   SLA due date; tasks with no SLA rule (sla_due_at null), tasks missing
+   from the view, and any row built before the view loads fall back to
+   the old due-date test, so nothing breaks if the view is unavailable. */
+function taskOverdue(a){
+  if(a && a.slaOverdue != null) return !!a.slaOverdue;
+  return !!(a && a.dueISO && a.dueISO < TODAY_ISO);
+}
 function urgentSignals(t){
   var s = [];
   if(t.priority==="urgent") s.push("Priority: urgent");
   var h = ageHours(t.createdISO);
   if(h>24) s.push("Open "+h+"h (&gt;24h)");
-  if(t.dueISO && t.dueISO < TODAY_ISO) s.push("Past due");
+  if(taskOverdue(t)) s.push("Past due");
   return s;
 }
 /* One row renderer for BOTH Today's actions and Urgent — identical columns:
    checkbox, Status, Patient, Action, Why, Due, Outcome. */
 function actionRowHTML(a, kind, idx){
-  /* Overdue is decided by the due DATE alone: before today = Overdue,
-     today (or later) = Today. A task due today is never "Overdue". */
-  var badge = a.done ? '<span class="tag green">Done</span>' : ((a.dueISO && a.dueISO < TODAY_ISO) ? '<span class="tag red">Overdue</span>' : '<span class="tag amber">Today</span>');
+  /* Overdue pill comes from the SLA view via taskOverdue (due-date
+     fallback for tasks with no SLA rule). The due-date label itself
+     is unchanged. */
+  var badge = a.done ? '<span class="tag green">Done</span>' : (taskOverdue(a) ? '<span class="tag red">Overdue</span>' : '<span class="tag amber">Today</span>');
   var name;
   if(a.pid) name = '<button class="link-btn a-patient" style="padding:0;min-height:0;text-align:left" data-patient-link="'+a.pid+'">'+escHtml(a.patient)+'</button>';
   else if(a.physio) name = '<button class="link-btn a-patient" style="padding:0;min-height:0;text-align:left" data-physio="'+escHtml(a.physio)+'" title="See '+escHtml(a.physio)+'&rsquo;s tasks">'+escHtml(a.patient)+'</button>';
@@ -1877,7 +1886,7 @@ function adminStats(){
   });
   var completed = onTime + late;
   var open = inR.filter(function(a){ return !a.done; });
-  var overdue = open.filter(function(a){ return a.dueISO && a.dueISO < TODAY_ISO; }).length;
+  var overdue = open.filter(function(a){ return taskOverdue(a); }).length;
   /* Carried over (option C): open tasks created yesterday — yesterday is
      the Europe/London calendar date of (today minus 1 day), and each
      task's created date is its London date (createdISO, set from
@@ -2351,7 +2360,7 @@ function renderCancellations(){
   var listEl = document.getElementById("cxList"); if(!listEl) return;
   var rows = CX_ROWS.filter(function(r){ return inRange(r.dateISO); });
   var rb = document.getElementById("cxRebooked");
-  if(rb) rb.textContent = rows.some(function(r){ return r.rebooked===null; }) ? "\u2014" : rows.filter(function(r){ return r.rebooked; }).length;
+  if(rb) rb.textContent = rows.filter(function(r){ return r.rebooked; }).length;
   /* Reason bars — cancelled rows only, grouped from the free text. */
   var counts = {}; CX_GROUPS.forEach(function(g){ counts[g] = 0; });
   var cancelled = rows.filter(function(r){ return r.type==="cancelled"; });
@@ -2370,7 +2379,7 @@ function renderCancellations(){
       ? '<span class="tag grey">Not recorded</span>'
       : (r.rebooked
       ? '<span class="tag green">Rebooked</span><div class="cell-sub" style="margin-top:4px">Next: '+escHtml(r.next)+'</div>'
-      : '<span class="tag grey">Not rebooked</span><div class="cell-sub" style="margin-top:4px">No upcoming appointment</div>');
+      : '<span class="tag grey">Not rebooked</span><div class="cell-sub" style="margin-top:4px">No later appointment</div>');
     var reason = r.type==="cancelled" ? '&ldquo;'+escHtml(r.reason)+'&rdquo;' : escHtml(r.reason);
     return '<div class="list-row cx-grid">'
       + '<div><button class="link-btn cell-main" style="padding:0;min-height:0;text-align:left" data-patient-link="'+r.pid+'">'+escHtml(p.name)+'</button><div style="margin-top:4px">'+typeTag+'</div></div>'
@@ -3016,6 +3025,26 @@ function countRangeQ(table, filters, col, from, to){
   q = q.gte(col, from).lt(col, to);
   return q.then(function(r){ if (r.error) throw r.error; return r.count || 0; });
 }
+/* Safe paged fetch for the agency views. Resolves to null on ANY error
+   (missing view, missing column, network) so callers can fall back to
+   the previous logic and the page never breaks. No secondary "id"
+   ordering — these views may not have an id column. */
+function fetchViewRows(table, cols, orderCol){
+  var pageSize = 1000, out = [];
+  function next(from){
+    var q = sb.from(table).select(cols);
+    if (orderCol) q = q.order(orderCol, { ascending: true });
+    q = q.range(from, from + pageSize - 1);
+    return q.then(function(r){
+      if (r.error) throw r.error;
+      var d = r.data || [];
+      out = out.concat(d);
+      if (d.length === pageSize) return next(from + pageSize);
+      return out;
+    });
+  }
+  return next(0).catch(function(){ return null; });
+}
 
 function fetchAll(){
   var counts = {};
@@ -3047,7 +3076,11 @@ function fetchAll(){
     listAll("tasks",TASK_COLS,"created_at",false,[["task_type","complaint"]]).then(function(d){ lists.crComplaint = d; }),
     listAll("tasks",TASK_COLS,"created_at",false,[["task_type","refund"]]).then(function(d){ lists.crRefund = d; }),
     listAll("appointments",APPT_COLS,"starts_at",false,[["status","cancelled"]]).then(function(d){ lists.cxCancelled = d; }),
-    listAll("appointments",APPT_COLS,"starts_at",false,[["status","missed"]]).then(function(d){ lists.cxMissed = d; })
+    listAll("appointments",APPT_COLS,"starts_at",false,[["status","missed"]]).then(function(d){ lists.cxMissed = d; }),
+    /* Agency views — SLA overdue and journey / deposit metrics. Both
+       resolve to null on failure; applyLiveData falls back gracefully. */
+    fetchViewRows("vw_task_sla","task_id,status,is_overdue,sla_due_at","task_id").then(function(d){ lists.sla = d; }),
+    fetchViewRows("vw_journey_metrics_plus","*",null).then(function(d){ lists.journey = d; })
   ];
   return Promise.all(jobs.concat(listJobs)).then(function(){
     /* Per-practitioner totals (exact counts) */
@@ -3082,6 +3115,34 @@ function fetchAll(){
       });
     });
   });
+}
+
+/* Deposits from vw_journey_metrics_plus — GHL payment workflow event
+   counts, all time. Accepts a wide row (columns such as deposit_paid /
+   deposit_pending / slot_released, in any naming variant) or metric /
+   value rows. Values that cannot be found stay "—"; nothing is guessed. */
+function applyDeposits(rows){
+  if (!rows || !rows.length) return;
+  var paid = null, notPaid = null, released = null;
+  function num(v){ var n = (typeof v === "number") ? v : parseFloat(String(v == null ? "" : v).replace(/[^0-9.\-]/g, "")); return isNaN(n) ? null : n; }
+  function classify(name, v){
+    var k = String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, "_");
+    var n = num(v); if (n == null) return;
+    if (k.indexOf("released") !== -1){ if (released === null) released = n; return; }
+    if (k.indexOf("not_paid") !== -1 || k.indexOf("notpaid") !== -1 || k.indexOf("unpaid") !== -1){ if (notPaid === null) notPaid = n; return; }
+    if (k.indexOf("pending") !== -1 && (k.indexOf("deposit") !== -1 || k.indexOf("payment") !== -1)){ if (notPaid === null) notPaid = n; return; }
+    if (k.indexOf("paid") !== -1){ if (paid === null) paid = n; return; }
+  }
+  rows.forEach(function(r){
+    if (!r || typeof r !== "object") return;
+    var nameField = r.metric_name || r.metric || r.name || r.key || r.event_type || r.type || r.label;
+    var valField = (r.metric_value != null ? r.metric_value : (r.value != null ? r.value : (r.count != null ? r.count : r.total)));
+    if (nameField != null && valField != null){ classify(String(nameField) + " " + String(r.status || r.payment_status || r.deposit_status || ""), valField); return; }
+    Object.keys(r).forEach(function(k){ classify(k, r[k]); });
+  });
+  if (paid != null) setText("apDepPaid", fmtNum(paid));
+  if (notPaid != null) setText("apDepNotPaid", fmtNum(notPaid));
+  if (released != null) setText("apDepReleased", fmtNum(released));
 }
 
 /* ---------- map live rows into the dashboard's data ---------- */
@@ -3139,13 +3200,20 @@ function applyLiveData(data){
      own list and never count as completed. A task's due DATE is the
      Europe/London calendar date of due_at (londonISO) — the clinic's
      date, never the viewer's — and the due time of day is ignored.
-     fmtDay prints that same London date as dueLabel, so the label and
-     the badge always agree. Every overdue / due-today test on this
-     page (badge, Urgent filter, journey count, overdue count)
-     compares that one London date against today (also London), so a
-     task due today is "Today", never "Overdue", and the counts
-     always match the lists. Completion dates likewise use the
-     London calendar date (londonISO). */
+     fmtDay prints that same London date as dueLabel — labels and the
+     due-today test still use that London date, unchanged. Overdue is
+     separate: it comes from vw_task_sla (is_overdue) when the task has
+     an SLA due date, with the old London due-date test as the fallback
+     for tasks with no SLA rule or when the view cannot be fetched.
+     Completion dates likewise use the London calendar date
+     (londonISO), and the completed on-time / late logic is unchanged. */
+  /* SLA map from vw_task_sla — null when the view fetch failed, in
+     which case every task falls back to the old due-date overdue test. */
+  var slaMap = null;
+  if (lists.sla){
+    slaMap = {};
+    lists.sla.forEach(function(r){ if (r.task_id != null) slaMap[String(r.task_id)] = r; });
+  }
   ADMIN_ACTIONS = [];
   COMPLETED_TASKS = [];
   CANCELLED_TASKS = [];
@@ -3155,8 +3223,14 @@ function applyLiveData(data){
     var dueISO = londonISO(dueRaw) || dueRaw.slice(0,10);
     var doneISO = londonISO(t.completed_at || t.created_at || "") || (t.completed_at || t.created_at || "").slice(0,10);
     var createdISO = londonISO(t.created_at || "") || (t.created_at || "").slice(0,10);
+    var fallbackOverdue = !!(dueISO && dueISO < TODAY_ISO);
+    var slaRow = slaMap ? slaMap[String(t.id)] : null;
+    /* Only trust is_overdue when the view gives an actual SLA due date;
+       sla_due_at null means no SLA rule for this task — old logic stays. */
+    var slaOverdue = (slaRow && slaRow.sla_due_at != null) ? !!slaRow.is_overdue : fallbackOverdue;
     var item = { id: t.id, pid: pidOf(t.contact_id), patient: nameOf(t.contact_id),
-      status: (t.status === "open" && dueISO && dueISO < TODAY_ISO) ? "overdue" : "today",
+      status: (t.status === "open" && slaOverdue) ? "overdue" : "today",
+      slaOverdue: slaOverdue,
       dueLabel: fmtDay(dueRaw), dueISO: dueISO, createdISO: createdISO,
       priority: (t.priority === "urgent" || t.priority === "high") ? "urgent" : "normal",
       carried: t.status === "open" && createdISO === isoAdd(TODAY_ISO, -1), done: t.status !== "open", outcome: "", custom: "",
@@ -3178,13 +3252,41 @@ function applyLiveData(data){
       status: t.status === "open" ? "Open" : (t.status === "completed" ? "Done" : (t.status === "cancelled" ? "Cancelled" : humanize(t.status || ""))) });
   });
 
-  /* Cancellations & DNAs — from their own targeted fetch by status. */
+  /* Cancellations & DNAs — from their own targeted fetch by status.
+     Rebooked is derived from the appointments already fetched: a row is
+     rebooked when the same contact has any later appointment (starts_at
+     after this appointment's starts_at); Next shows the earliest such
+     appointment's date. Rows with no contact linked stay "Not recorded"
+     (rebooked null). The journey view's rebooked metric and the recovery
+     view's completed count are deliberately NOT used for this. */
+  var apptsByContact = {};
+  (lists.appts || []).forEach(function(a){
+    if (a.contact_id == null || !a.starts_at) return;
+    var cid = String(a.contact_id);
+    if (!apptsByContact[cid]) apptsByContact[cid] = [];
+    apptsByContact[cid].push(a);
+  });
+  Object.keys(apptsByContact).forEach(function(cid){
+    apptsByContact[cid].sort(function(x, y){ return String(x.starts_at) < String(y.starts_at) ? -1 : (String(x.starts_at) > String(y.starts_at) ? 1 : 0); });
+  });
   CX_ROWS = (lists.cxCancelled || []).concat(lists.cxMissed || []).map(function(a){
+    var rebooked = null, next = "";
+    if (a.contact_id != null){
+      var laters = (apptsByContact[String(a.contact_id)] || []).filter(function(x){ return x.id !== a.id && a.starts_at && x.starts_at && x.starts_at > a.starts_at; });
+      rebooked = laters.length > 0;
+      if (rebooked) next = fmtDay(laters[0].starts_at);
+    }
     return { pid: pidOf(a.contact_id), type: a.status === "missed" ? "missed" : "cancelled",
       dateISO: (a.cancel_date || a.starts_at || "").slice(0,10), when: fmtWhen(a.starts_at),
       physio: pracName[a.practitioner_id] || "\u2014", reason: stripMarkup(a.cancel_reason || "No reason given"),
-      rebooked: null, next: "", fu: "\u2014", seq: "None" };
+      rebooked: rebooked, next: next, fu: "\u2014", seq: "None" };
   });
+
+  /* Deposits — event counts from vw_journey_metrics_plus (GHL payment
+     workflow events, all time; NOT per-appointment deposit status).
+     Handles both a single wide row (deposit_* columns) and metric /
+     value rows. Anything unrecognised leaves the boxes at "—". */
+  applyDeposits(lists.journey);
 
   /* Physio task lists — tasks carry no physio assignment, so a physio's
      outstanding work is their pending (unprocessed) appointments, the same
@@ -3473,7 +3575,7 @@ function updateLiveTotals(counts, lists){
   var lost = ENQUIRIES.filter(function(e){ return !e.booked; }).length;
   setText("ovLost", fmtNum(lost));
   setText("unprocTotal", fmtNum(counts.apptsPending) + " pending in total");
-  var overdue = ADMIN_ACTIONS.filter(function(a){ return !a.done && a.dueISO && a.dueISO < TODAY_ISO; }).length;
+  var overdue = ADMIN_ACTIONS.filter(function(a){ return !a.done && taskOverdue(a); }).length;
   var dueToday = ADMIN_ACTIONS.filter(function(a){ return !a.done && a.dueISO === TODAY_ISO; }).length;
   setText("nsOverdue", fmtNum(overdue));
   setText("ooOverdue", fmtNum(overdue));
