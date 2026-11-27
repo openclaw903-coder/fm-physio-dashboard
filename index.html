@@ -4484,12 +4484,34 @@ if (forgotForm) forgotForm.addEventListener("submit", function(e){
   var btn = document.getElementById("forgotSendBtn");
   ok.textContent = ""; err.textContent = "";
   if (!email || email.indexOf("@") < 1){ err.textContent = "Enter the email address of your account."; return; }
-  btn.disabled = true; btn.textContent = "Sending…";
-  sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + window.location.pathname }).then(function(res){
+  btn.disabled = true; btn.textContent = "Checking…";
+  /* Check first via the auth-helper Edge Function (JWT verification is off
+     there, so a logged-out caller can use it): only send the reset link
+     when an account actually exists for the typed email. */
+  fetch("https://qyvkseltcebgkojmmuno.supabase.co/functions/v1/auth-helper", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "account_exists", email: email })
+  }).then(function(resp){
+    if (!resp.ok) throw new Error("check failed");
+    return resp.json();
+  }).then(function(data){
+    if (!data || typeof data.exists !== "boolean") throw new Error("check failed");
+    if (!data.exists){
+      btn.disabled = false; btn.textContent = "Send reset link to this email";
+      err.textContent = "No account exists for this email — please contact the owner.";
+      return;
+    }
+    btn.textContent = "Sending…";
+    sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + window.location.pathname }).then(function(res){
+      btn.disabled = false; btn.textContent = "Send reset link to this email";
+      if (res.error){ err.textContent = res.error.message || "Could not send the reset email."; return; }
+      ok.textContent = "A reset link has been sent to " + email + ". Follow the link in that inbox to set a new password.";
+    }).catch(function(){ btn.disabled = false; btn.textContent = "Send reset link to this email"; err.textContent = "Couldn’t send the reset email — check your connection and try again."; });
+  }).catch(function(){
     btn.disabled = false; btn.textContent = "Send reset link to this email";
-    if (res.error){ err.textContent = res.error.message || "Could not send the reset email."; return; }
-    ok.textContent = "If an account exists for " + email + ", a reset link has been sent to that inbox. Follow the link to set a new password.";
-  }).catch(function(){ btn.disabled = false; btn.textContent = "Send reset link to this email"; err.textContent = "Couldn’t send the reset email — check your connection and try again."; });
+    err.textContent = "Couldn’t check that email — check your connection and try again.";
+  });
 });
 
 var setPwForm = document.getElementById("setPwForm");
