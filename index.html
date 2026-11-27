@@ -4235,7 +4235,7 @@ function renderUsersList(users){
       /* Owner card is a summary only — no tick grid. The full, locked
          grid looked exactly like the editor for the user below it,
          which is what made page editing look broken. */
-      return '<div class="user-card owner-card" data-user-idx="' + idx + '" data-user-id="' + esc(String(uid)) + '" data-user-active="' + (isActive ? "1" : "0") + '">'
+      return '<div class="user-card owner-card" data-user-idx="' + idx + '" data-user-id="' + esc(String(uid)) + '" data-user-state="' + (isActive ? "1" : "0") + '">'
         + head
         + '<p class="uc-pages-line">Can see all ' + ALL_PAGE_KEYS.length + ' pages. The owner always has all pages and cannot be deactivated or deleted.</p>'
         + '</div>';
@@ -4249,7 +4249,7 @@ function renderUsersList(users){
       + '<button class="btn small" type="button" data-pages-all="' + idx + '">Tick all</button>'
       + '<button class="btn small" type="button" data-pages-none="' + idx + '">Clear all</button>'
       + '</div>';
-    return '<div class="user-card" data-user-idx="' + idx + '" data-user-id="' + esc(String(uid)) + '" data-user-active="' + (isActive ? "1" : "0") + '">'
+    return '<div class="user-card" data-user-idx="' + idx + '" data-user-id="' + esc(String(uid)) + '" data-user-state="' + (isActive ? "1" : "0") + '">'
       + head
       + '<p class="uc-pages-line">Currently can see ' + allowed.size + ' of ' + ALL_PAGE_KEYS.length + ' pages. Untick a page to remove access, then Save pages.</p>'
       + '<div class="page-checks">' + pageChecksHTML("user-page-" + idx, allowed, false) + '</div>'
@@ -4258,8 +4258,13 @@ function renderUsersList(users){
       + '<p class="users-err" data-user-err role="alert"></p>'
       + '</div>';
   }).join("");
-  /* Two-tap confirm state per card, reset on every render. */
-  wrap.querySelectorAll("[data-user-active], [data-user-delete]").forEach(function(btn){
+  /* Two-tap confirm state per card, reset on every render. The selector
+     MUST stay scoped to <button>: the card itself carries data-user-state,
+     and an earlier unscoped [data-user-active] selector also matched the
+     card div — so any click inside a card (a page tick, Tick all, …) ran
+     this handler on the card and textContent wiped the whole card down to
+     the words "Tap again to confirm". */
+  wrap.querySelectorAll("button[data-user-active], button[data-user-delete]").forEach(function(btn){
     btn.addEventListener("click", function(){
       var card = btn.closest(".user-card");
       var idx2 = parseInt(card.getAttribute("data-user-idx"), 10);
@@ -4270,13 +4275,13 @@ function renderUsersList(users){
       if (!btn.classList.contains("confirm")){
         btn.classList.add("confirm");
         btn.textContent = isDelete ? "Tap again to confirm delete (permanent)" : "Tap again to confirm";
-        setTimeout(function(){ if (btn.isConnected && btn.classList.contains("confirm")){ btn.classList.remove("confirm"); btn.textContent = isDelete ? "Delete" : ((card.getAttribute("data-user-active") === "1") ? "Deactivate" : "Reactivate"); } }, 5000);
+        setTimeout(function(){ if (btn.isConnected && btn.classList.contains("confirm")){ btn.classList.remove("confirm"); btn.textContent = isDelete ? "Delete" : ((card.getAttribute("data-user-state") === "1") ? "Deactivate" : "Reactivate"); } }, 5000);
         return;
       }
       btn.disabled = true; btn.textContent = "Working…";
       var call = isDelete
         ? adminFn({ action: "delete_user", user_id: uid })
-        : adminFn({ action: "set_active", user_id: uid, active: card.getAttribute("data-user-active") !== "1" });
+        : adminFn({ action: "set_active", user_id: uid, active: card.getAttribute("data-user-state") !== "1" });
       call.then(function(){ loadUsersList(); }).catch(function(e){
         btn.disabled = false; btn.classList.remove("confirm"); btn.textContent = isDelete ? "Delete" : "Try again";
         if (errEl) errEl.textContent = (e && e.message) || "Something went wrong — try again.";
