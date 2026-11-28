@@ -1624,6 +1624,17 @@ function setText(id, v){ var el = document.getElementById(id); if (el) el.textCo
    calls it. Without this global copy, the Payments cards threw
    ReferenceError the moment the setText fix let renderPayments run. */
 function fmtNum(n){ return (n == null ? 0 : n).toLocaleString("en-GB"); }
+/* task_events.details is jsonb, not text (verified 28 Nov 2026 from
+   Supabase): "updated" events carry {due_at, assigned_to,
+   assigned_from, snoozed_until} — all null, nothing readable — and
+   "note" events carry {note, author, ...}. Return the readable note
+   text, or "" — never a raw object, which would render as
+   "[object Object]" in the History section. */
+function taskEventDetailsText(det){
+  if (typeof det === "string") return det;
+  if (det && typeof det === "object" && typeof det.note === "string") return det.note;
+  return "";
+}
 /* The 19 gated pages — keys match user_page_access.page_key exactly.
    The three My Work pages come first, so a physio who only has those
    lands on My Appointments, and the owner sees them first in Users. */
@@ -1855,7 +1866,7 @@ function taskDetailRows(t, patientName){
       var label = ev.type ? (String(ev.type).charAt(0).toUpperCase() + String(ev.type).slice(1)) : "Event";
       var line = escHtml(label) + (ev.when ? " · " + escHtml(ev.when) : "");
       if (ev.from && ev.to) line += " · " + escHtml(ev.from) + " → " + escHtml(ev.to);
-      if (ev.details) line += '<div style="color:var(--muted);font-weight:400">' + escHtml(ev.details) + '</div>';
+      if (typeof ev.details === "string" && ev.details) line += '<div style="color:var(--muted);font-weight:400">' + escHtml(ev.details) + '</div>';
       return '<div style="padding:6px 0;border-bottom:1px solid var(--line);font-size:13px;font-weight:700">' + line + '</div>';
     }).join("");
   }
@@ -5067,7 +5078,7 @@ function applyLiveData(data){
   (lists.taskEvents || []).forEach(function(ev){
     if (!ev || ev.task_id == null) return;
     var k = String(ev.task_id);
-    (TASK_EVENTS_BY_ID[k] = TASK_EVENTS_BY_ID[k] || []).push({ type: ev.event_type || "", when: ev.occurred_at ? fmtWhen(ev.occurred_at) : "", ts: ev.occurred_at || "", from: ev.from_status || "", to: ev.to_status || "", details: ev.details || "" });
+    (TASK_EVENTS_BY_ID[k] = TASK_EVENTS_BY_ID[k] || []).push({ type: ev.event_type || "", when: ev.occurred_at ? fmtWhen(ev.occurred_at) : "", ts: ev.occurred_at || "", from: ev.from_status || "", to: ev.to_status || "", details: taskEventDetailsText(ev.details) });
   });
   Object.keys(TASK_EVENTS_BY_ID).forEach(function(k){
     TASK_EVENTS_BY_ID[k].sort(function(a, b){ return a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : 0; });
