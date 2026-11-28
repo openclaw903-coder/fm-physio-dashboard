@@ -5083,6 +5083,7 @@ function renderProgressMonth(){
       rowsHtml += '<div class="list-row" style="grid-template-columns:1.4fr .7fr .7fr .7fr .7fr"><div><button class="link-btn cell-main" style="padding:0;min-height:0" data-physio="'+esc(full)+'">'+esc(full)+'</button></div><div class="num" style="font-weight:800">' + fmtNum(r.b) + '</div><div class="num">' + fmtNum(r.c) + '</div><div class="num">' + fmtNum(r.d) + '</div><div class="num" style="text-align:right;font-weight:800">' + fmtNum(patCounts[full] || 0) + "</div></div>";
     });
     rowsHtml += '<p class="foot-note" style="text-align:left">Patients = distinct patients per physio, all time, by most recent appointment (contact-linked only).</p>';
+    rowsHtml += '<p class="foot-note" style="text-align:left">Counts appointments by scheduled month and status — cancellations are counted in the month the appointment was due, while the monthly totals count them in the month they were cancelled.</p>';
     physRows.innerHTML = rowsHtml;
     bindPhysioClicks(physRows);
   }
