@@ -676,6 +676,13 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
       </div>
 
       <div class="nav-group">
+        <div class="nav-group-label">My Work</div>
+        <button class="nav-item" data-page="my-appointments"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>My Appointments</button>
+        <button class="nav-item" data-page="my-patients"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>My Patients</button>
+        <button class="nav-item" data-page="my-tasks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>My Tasks</button>
+      </div>
+
+      <div class="nav-group">
         <div class="nav-group-label">Patients</div>
         <button class="nav-item" data-page="patients"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Patients<span class="nav-badge" id="liveBadgePatients">—</span></button>
         <button class="nav-item" data-page="progress"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 7l-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/></svg>Progress</button>
@@ -1314,6 +1321,65 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
         </div>
       </section>
 
+      <!-- ======== MY APPOINTMENTS ======== -->
+      <section class="page" id="page-my-appointments">
+        <div class="page-head">
+          <div><h2>My Appointments</h2><p id="myApptSubtitle">Your appointments · all dates</p></div>
+        </div>
+        <div class="panel" id="myApptUnmapped" hidden>
+          <div class="empty-note">No physio linked to this account — ask the owner.</div>
+        </div>
+        <div class="list-card" id="myApptCard">
+          <div class="list-head" style="grid-template-columns:1.5fr 1.2fr .8fr">
+            <span>Patient</span><span>Appointment</span><span style="text-align:right">Status</span>
+          </div>
+          <div id="myApptRows"><div class="empty-note">No data yet</div></div>
+          <div class="empty-note hidden-row" id="myApptEmpty">No appointments yet.</div>
+        </div>
+      </section>
+
+      <!-- ======== MY PATIENTS ======== -->
+      <section class="page" id="page-my-patients">
+        <div class="page-head">
+          <div><h2>My Patients</h2><p>Patients whose most recent appointment was with you.</p></div>
+        </div>
+        <div class="panel" id="myPatUnmapped" hidden>
+          <div class="empty-note">No physio linked to this account — ask the owner.</div>
+        </div>
+        <div class="list-card" id="myPatCard">
+          <div class="list-head" style="grid-template-columns:1.5fr 1fr .8fr">
+            <span>Patient</span><span>Last seen</span><span style="text-align:right">Appointments with you</span>
+          </div>
+          <div id="myPatRows"><div class="empty-note">No data yet</div></div>
+          <div class="empty-note hidden-row" id="myPatEmpty">No patients yet.</div>
+        </div>
+        <div class="panel" id="myPatDetail" hidden style="margin-top:22px">
+          <div class="panel-head"><h3 id="myPatDetailName">Patient</h3><button class="btn small" type="button" id="myPatDetailClose">Close</button></div>
+          <div id="myPatDetailBody"><div class="empty-note">Select a patient to see their history.</div></div>
+        </div>
+      </section>
+
+      <!-- ======== MY TASKS ======== -->
+      <section class="page" id="page-my-tasks">
+        <div class="page-head">
+          <div><h2>My Tasks</h2><p id="myTaskSubtitle">Choose an outcome, then tick to save it</p></div>
+        </div>
+        <div class="panel" id="myTaskUnmapped" hidden>
+          <div class="empty-note">No physio linked to this account — ask the owner.</div>
+        </div>
+        <div class="panel" style="margin-bottom:22px">
+          <div class="panel-head"><h3>Open tasks</h3></div>
+          <div class="action-head"><span></span><span>Status</span><span>Patient</span><span>Action</span><span>Why</span><span>Opened</span><span>Outcome</span></div>
+          <div id="myTaskRows"></div>
+          <div class="empty-note hidden-row" id="myTaskEmpty">No open tasks.</div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>Completed</h3></div>
+          <div id="myTaskDoneRows"></div>
+          <div class="empty-note hidden-row" id="myTaskDoneEmpty">Nothing completed yet.</div>
+        </div>
+      </section>
+
       <!-- ======== USERS & ACCESS (owner only) ======== -->
       <section class="page" id="page-users">
         <div class="page-head"><div><h2>Users &amp; Access</h2><p>Invite users, choose exactly which pages each one can see, deactivate or delete accounts. Only the owner can use this page.</p></div></div>
@@ -1422,8 +1488,13 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
 
 <script>
 function escHtml(s){ return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
-/* The 16 gated pages — keys match user_page_access.page_key exactly. */
+/* The 19 gated pages — keys match user_page_access.page_key exactly.
+   The three My Work pages come first, so a physio who only has those
+   lands on My Appointments, and the owner sees them first in Users. */
 var PAGE_DEFS = [
+  {key:"my-appointments", label:"My Appointments"},
+  {key:"my-patients", label:"My Patients"},
+  {key:"my-tasks", label:"My Tasks"},
   {key:"overview", label:"Overview"},
   {key:"owner-overview", label:"Owner Overview"},
   {key:"admin-today", label:"Admin Today"},
@@ -1445,7 +1516,7 @@ var ALL_PAGE_KEYS = PAGE_DEFS.map(function(p){ return p.key; });
 /* Session access state — filled after login from admin_users +
    user_page_access by the live-data script. Until loaded, nothing is
    gated (the login gate covers the screen anyway). */
-var ACCESS = { loaded:false, role:null, active:true, isOwner:false, userId:null, email:"", allowed:new Set(ALL_PAGE_KEYS) };
+var ACCESS = { loaded:false, role:null, active:true, isOwner:false, userId:null, email:"", allowed:new Set(ALL_PAGE_KEYS), practitionerId:null, practitionerName:"" };
 function canAccessPage(id){
   if(!ACCESS.loaded) return true;
   if(id==="denied") return true;
@@ -1516,7 +1587,7 @@ var PATIENTS = {};
 var APPOINTMENTS = [];
 
 /* ================= NAVIGATION ================= */
-var pages = ["overview","owner-overview","admin-today","appointments","unprocessed","patients","progress","enquiries","cancellations","complaints","discharged","team","performance","payments","ai","dnc","patient","physio","users","denied"];
+var pages = ["overview","my-appointments","my-patients","my-tasks","owner-overview","admin-today","appointments","unprocessed","patients","progress","enquiries","cancellations","complaints","discharged","team","performance","payments","ai","dnc","patient","physio","users","denied"];
 var lastPage = "overview";
 var activePage = "overview";
 var returnPage = "overview";
@@ -1874,6 +1945,13 @@ window.EXTRA_PATIENTS = {};
 var OUTCOME_OPTIONS = ["Resolved, kept patient","Refund issued","No answer","Passed to Stuart"];
 var ADMIN_ACTIONS = [];
 ADMIN_ACTIONS.forEach(function(a){ a.done=false; a.outcome=""; a.custom=""; });
+/* My Work lists — the signed-in physio's own data, built in
+   applyLiveData from the scoped fetches. Empty for the owner (who uses
+   the full pages) and for users with no physio mapping. */
+var MY_APPTS = [];
+var MY_PATIENTS = [];
+var MY_TASKS = [];
+var MY_TASKS_DONE = [];
 /* Completed tasks come from the full tasks fetch, so the Admin Today
    completed counts use real totals. Completed means status "completed"
    ONLY — cancelled tasks live in their own list and are never counted
@@ -1933,7 +2011,8 @@ function bindActionRows(container){
   if(!container) return;
   container.querySelectorAll(".action-row").forEach(function(row){
     var kind = row.getAttribute("data-action-kind");
-    var a = (kind==="extra" ? URGENT_EXTRA : ADMIN_ACTIONS)[parseInt(row.getAttribute("data-action-idx"),10)];
+    var list = kind==="extra" ? URGENT_EXTRA : (kind==="my" ? MY_TASKS : ADMIN_ACTIONS);
+    var a = list[parseInt(row.getAttribute("data-action-idx"),10)];
     if(!a) return;
     var sel = row.querySelector(".act-outcome"), txt = row.querySelector(".act-custom"), chk = row.querySelector(".act-check");
     function sync(){
@@ -3267,7 +3346,12 @@ function clearSaveErr(anchor){
 function saveTaskDone(taskId, outcomeLabel){
   if (!sb || taskId == null) return Promise.resolve(false);
   var task = null;
-  ADMIN_ACTIONS.forEach(function(a){ if (String(a.id) === String(taskId)) task = a; });
+  /* The task may live in the admin list, the urgent list, or the
+     signed-in physio's own list — the metadata merge needs the row
+     whichever list it came from, so the existing keys survive. */
+  [ADMIN_ACTIONS, URGENT_EXTRA, MY_TASKS].forEach(function(list){
+    (list || []).forEach(function(a){ if (String(a.id) === String(taskId)) task = a; });
+  });
   var now = new Date().toISOString();
   var merged = {};
   var cur = (task && task.metadata && typeof task.metadata === "object") ? task.metadata : {};
@@ -3361,6 +3445,7 @@ document.addEventListener("click", function(e){
     } else {
       var tid = doneBtn.getAttribute("data-task-id");
       ADMIN_ACTIONS.forEach(function(x){ if (String(x.id) === String(tid)) a = x; });
+      if (!a) MY_TASKS.forEach(function(x){ if (String(x.id) === String(tid)) a = x; });
     }
     if (!a || a.done) return;
     clearSaveErr(doneBtn);
@@ -3388,7 +3473,8 @@ document.addEventListener("change", function(e){
   var row = chk.closest(".action-row");
   if (!row) return;
   var kind = row.getAttribute("data-action-kind");
-  var a = (kind === "extra" ? URGENT_EXTRA : ADMIN_ACTIONS)[parseInt(row.getAttribute("data-action-idx"), 10)];
+  var list = kind === "extra" ? URGENT_EXTRA : (kind === "my" ? MY_TASKS : ADMIN_ACTIONS);
+  var a = list[parseInt(row.getAttribute("data-action-idx"), 10)];
   if (!a) return;
   if (!chk.checked){ chk.checked = true; return; } /* a saved completion is not un-ticked here */
   clearSaveErr(chk);
@@ -3429,6 +3515,52 @@ function fetchAll(){
     if (canFetch(pageKeys)) return makeJob();
     return Promise.resolve().then(function(){ assign([]); });
   }
+  /* My Work fetch helpers — scoped to the signed-in physio only.
+     Appointments come back filtered by practitioner_id; patient ids
+     come from fn_my_patient_ids (most-recent-appointment derivation,
+     server-side); tasks come back filtered by those patient ids and
+     by the physio's own appointment ids. System tasks (no contact,
+     no appointment id) match neither filter and never reach a physio.
+     Every step is caught: a missing backend piece (column, RPC, RLS)
+     leaves empty My Work lists instead of breaking the whole load. */
+  function fetchMyAppts(){
+    if (!ACCESS.practitionerId){ lists.myAppts = []; return Promise.resolve(); }
+    return listAll("appointments", APPT_COLS, "starts_at", false, [["practitioner_id", ACCESS.practitionerId]])
+      .then(function(d){ lists.myAppts = d; })
+      .catch(function(){ lists.myAppts = []; });
+  }
+  function fetchMyWork(){
+    lists.myPatientIds = []; lists.myContacts = []; lists.myTasks = [];
+    if (!ACCESS.practitionerId) return Promise.resolve();
+    return sb.rpc("fn_my_patient_ids").then(function(res){
+      if (res.error) throw res.error;
+      var ids = (res.data || []).map(function(r){ return (r && typeof r === "object") ? r.contact_id : r; }).filter(function(x){ return x != null; });
+      lists.myPatientIds = ids;
+      return sb.from("appointments").select("id").eq("practitioner_id", ACCESS.practitionerId).then(function(ar){
+        var apptIds = (ar.error ? [] : (ar.data || []).map(function(a){ return a.id; }));
+        var jobs = [];
+        if (ids.length){
+          jobs.push(sb.from("contacts").select("id,first_name,last_name,email,phone_e164,dnc,created_at").in("id", ids).then(function(r){ if (r.error) throw r.error; return r.data || []; }));
+          jobs.push(sb.from("tasks").select(TASK_COLS).in("contact_id", ids).then(function(r){ if (r.error) throw r.error; return r.data || []; }));
+        } else {
+          jobs.push(Promise.resolve([]), Promise.resolve([]));
+        }
+        if (apptIds.length){
+          jobs.push(sb.from("tasks").select(TASK_COLS).filter("metadata->>appointment_id", "in", "(" + apptIds.join(",") + ")").then(function(r){ if (r.error) throw r.error; return r.data || []; }));
+        } else {
+          jobs.push(Promise.resolve([]));
+        }
+        return Promise.all(jobs);
+      });
+    }).then(function(parts){
+      lists.myContacts = parts[0] || [];
+      var byId = {};
+      (parts[1] || []).concat(parts[2] || []).forEach(function(t){ if (t && t.id != null) byId[t.id] = t; });
+      lists.myTasks = Object.keys(byId).map(function(k){ return byId[k]; });
+    }).catch(function(){
+      lists.myPatientIds = []; lists.myContacts = []; lists.myTasks = [];
+    });
+  }
   var listJobs = [
     gated(["patients","overview","owner-overview","enquiries","dnc","admin-today"], function(){ return listAll("contacts","id,first_name,last_name,email,phone_e164,dnc,created_at","created_at",false).then(function(d){ lists.contacts = d; }); }, function(d){ lists.contacts = d; }),
     gated(["admin-today","overview","owner-overview","team","complaints"], function(){ return listAll("tasks",TASK_COLS,"created_at",false).then(function(d){ lists.tasks = d; }); }, function(d){ lists.tasks = d; }),
@@ -3437,7 +3569,7 @@ function fetchAll(){
     gated(["patients","enquiries","overview","owner-overview"], function(){ return listAll("referrals","id,contact_id,referred_by,detail,status,created_at","created_at",false).then(function(d){ lists.referrals = d; }); }, function(d){ lists.referrals = d; }),
     gated(["performance","progress","overview","owner-overview"], function(){ return listQ("dashboard_monthly_performance","report_month,attended,no_shows,cancellations","report_month",true,12).then(function(d){ lists.monthly = d; }); }, function(d){ lists.monthly = d; }),
     gated(["patients","discharged"], function(){ return listAll("sequence_instances","id,contact_id,sequence_key,status,created_at","created_at",false).then(function(d){ lists.sequences = d; }); }, function(d){ lists.sequences = d; }),
-    gated(["team","performance","appointments","admin-today","unprocessed"], function(){ return listQ("practicehub_practitioners","practitioner_id,name,active",null,false,50).then(function(d){ lists.practitioners = d; }); }, function(d){ lists.practitioners = d; }),
+    gated(["team","performance","appointments","admin-today","unprocessed","my-appointments","my-patients","my-tasks"], function(){ return listQ("practicehub_practitioners","practitioner_id,name,active",null,false,50).then(function(d){ lists.practitioners = d; }); }, function(d){ lists.practitioners = d; }),
     /* Targeted sets — complaint / refund tasks by task_type, and cancelled /
        missed appointments by status, each fetched on its own so the page
        lists always match their headline counts. */
@@ -3448,7 +3580,12 @@ function fetchAll(){
     /* Agency views — SLA overdue and journey / deposit metrics. Both
        resolve to null on failure; applyLiveData falls back gracefully. */
     gated(["admin-today","overview","owner-overview"], function(){ return fetchViewRows("vw_task_sla","task_id,status,is_overdue,sla_due_at","task_id").then(function(d){ lists.sla = d; }); }, function(d){ lists.sla = null; }),
-    gated(["appointments","overview","owner-overview"], function(){ return fetchViewRows("vw_journey_metrics_plus","*",null).then(function(d){ lists.journey = d; }); }, function(d){ lists.journey = null; })
+    gated(["appointments","overview","owner-overview"], function(){ return fetchViewRows("vw_journey_metrics_plus","*",null).then(function(d){ lists.journey = d; }); }, function(d){ lists.journey = null; }),
+    /* My Work — the two scoped jobs. fetchMyAppts filters by the
+       physio's own practitioner_id; fetchMyWork derives the patient
+       list and tasks server-side (see helpers above). */
+    gated(["my-appointments"], function(){ return fetchMyAppts(); }, function(d){ lists.myAppts = d; }),
+    gated(["my-patients","my-tasks"], function(){ return fetchMyWork(); }, function(d){ lists.myPatientIds = d.ids || []; lists.myContacts = d.contacts || []; lists.myTasks = d.tasks || []; })
   ];
   return Promise.all(jobs.concat(listJobs)).then(function(){
     /* Per-practitioner totals (exact counts) */
@@ -3513,13 +3650,141 @@ function applyDeposits(rows){
   if (released != null) setText("apDepReleased", fmtNum(released));
 }
 
+/* ---------- My Work pages ----------
+   Render the signed-in physio's own data (MY_APPTS, MY_PATIENTS,
+   MY_TASKS — built in applyLiveData from the scoped fetches). A user
+   with no physio mapping sees the unmapped note and no patient data.
+   My Tasks reuses the Admin Today outcome pattern (dropdown + free
+   text + tick checkbox) and the same delegated save handlers, so the
+   outcome is written to Supabase exactly like an admin's. */
+function myUnmapped(){
+  return ACCESS.practitionerId == null;
+}
+function renderMyWork(){
+  renderMyAppts();
+  renderMyPatients();
+  renderMyTasks();
+}
+function renderMyAppts(){
+  var un = document.getElementById("myApptUnmapped"); if (un) un.hidden = !myUnmapped();
+  var card = document.getElementById("myApptCard"); if (card) card.hidden = myUnmapped();
+  var rows = document.getElementById("myApptRows"); if (!rows) return;
+  var sub = document.getElementById("myApptSubtitle");
+  if (sub) sub.textContent = ACCESS.practitionerName ? (ACCESS.practitionerName + " · your appointments · all dates") : "Your appointments · all dates";
+  var empty = document.getElementById("myApptEmpty");
+  if (myUnmapped() || !MY_APPTS.length){
+    rows.innerHTML = "";
+    if (empty) empty.classList.toggle("hidden-row", myUnmapped());
+    return;
+  }
+  if (empty) empty.classList.add("hidden-row");
+  rows.innerHTML = MY_APPTS.map(function(a){
+    var tag = a.status === "processed" ? "green" : (a.status === "cancelled" ? "red" : (a.status === "missed" ? "amber" : "blue"));
+    return '<div class="list-row" style="grid-template-columns:1.5fr 1.2fr .8fr"><div class="cell-main">' + escHtml(a.patient) + '</div><div class="cell-sub">' + escHtml(a.label) + '</div><div style="text-align:right"><span class="tag ' + tag + '">' + escHtml(humanize(a.status)) + '</span></div></div>';
+  }).join("");
+}
+function renderMyPatients(){
+  var un = document.getElementById("myPatUnmapped"); if (un) un.hidden = !myUnmapped();
+  var card = document.getElementById("myPatCard"); if (card) card.hidden = myUnmapped();
+  var rows = document.getElementById("myPatRows"); if (!rows) return;
+  var empty = document.getElementById("myPatEmpty");
+  if (myUnmapped() || !MY_PATIENTS.length){
+    rows.innerHTML = "";
+    if (empty) empty.classList.toggle("hidden-row", myUnmapped());
+    return;
+  }
+  if (empty) empty.classList.add("hidden-row");
+  rows.innerHTML = MY_PATIENTS.map(function(p){
+    var dnc = p.dnc ? ' <span class="tag dnc">Do Not Call</span>' : "";
+    return '<div class="list-row" style="grid-template-columns:1.5fr 1fr .8fr"><div class="cell-main">' + escHtml(p.name) + dnc + '</div><div class="cell-sub">' + escHtml(p.lastSeen) + '</div><div style="text-align:right"><button class="btn small primary" type="button" data-my-patient="' + p.id + '">View history</button></div></div>';
+  }).join("");
+  rows.querySelectorAll("[data-my-patient]").forEach(function(btn){
+    btn.addEventListener("click", function(){ openMyPatient(btn.getAttribute("data-my-patient")); });
+  });
+}
+function openMyPatient(cid){
+  var p = null;
+  MY_PATIENTS.forEach(function(x){ if (String(x.id) === String(cid)) p = x; });
+  var body = document.getElementById("myPatDetailBody");
+  var panel = document.getElementById("myPatDetail");
+  var nameEl = document.getElementById("myPatDetailName");
+  if (!p || !body || !panel) return;
+  if (nameEl) nameEl.textContent = p.name;
+  panel.hidden = false;
+  body.innerHTML = '<div class="empty-note">Loading history…</div>';
+  sb.rpc("fn_patient_history", { p_contact_id: Number(cid) }).then(function(res){
+    if (res.error) throw res.error;
+    var rows = res.data || [];
+    var head = '<div>'
+      + kvRow("Phone", escHtml(p.phone || "—"))
+      + kvRow("Email", escHtml(p.email || "—"))
+      + kvRow("Do Not Call", p.dnc ? "Yes" : "No")
+      + kvRow("Appointments with you", String(p.apptCount)) + '</div>';
+    var hist = rows.length ? rows.map(function(h){
+      var tag = h.status === "processed" ? "green" : (h.status === "cancelled" ? "red" : (h.status === "missed" ? "amber" : "blue"));
+      return '<div class="list-row" style="grid-template-columns:1.5fr 1fr .8fr"><div class="cell-main">' + escHtml(fmtWhen(h.starts_at)) + '</div><div class="cell-sub">' + escHtml(h.practitioner_name || "—") + '</div><div style="text-align:right"><span class="tag ' + tag + '">' + escHtml(humanize(h.status || "")) + '</span></div></div>';
+    }).join("") : '<div class="empty-note">No appointments on file.</div>';
+    body.innerHTML = head + '<h3 style="font-size:16px;margin:18px 0 8px">Appointment history — every physio</h3>' + hist;
+  }).catch(function(){
+    body.innerHTML = '<div class="empty-note">Could not load this patient’s history — try again.</div>';
+  });
+}
+var myPatDetailClose = document.getElementById("myPatDetailClose");
+if (myPatDetailClose) myPatDetailClose.addEventListener("click", function(){
+  var panel = document.getElementById("myPatDetail"); if (panel) panel.hidden = true;
+});
+/* One My Tasks row: the same columns as Admin Today, but the time
+   shown is when the task OPENED (tasks.created_at), and the patient
+   name is plain text — a physio has no access to the global patient
+   file, so there is no link out of their own pages. */
+function myTaskRowHTML(a, idx){
+  var badge = a.done ? '<span class="tag green">Done</span>' : (taskOverdue(a) ? '<span class="tag red">Overdue</span>' : '<span class="tag amber">Open</span>');
+  var opts = '<option value="">Choose outcome</option>' + OUTCOME_OPTIONS.map(function(o){ return '<option'+(a.outcome===o?" selected":"")+'>'+o+'</option>'; }).join("");
+  var canComplete = !!(a.outcome || a.custom.trim());
+  return '<div class="action-row" data-action-kind="my" data-action-idx="'+idx+'">'
+    + '<input type="checkbox" class="act-check" aria-label="Mark complete" '+(canComplete?"":" disabled")+' />'
+    + '<div>'+badge+'</div>'
+    + '<div><span class="a-patient">'+escHtml(a.patient)+'</span></div>'
+    + '<div class="a-action">'+escHtml(a.action)+'</div>'
+    + '<div class="a-why">'+escHtml(a.why)+'</div>'
+    + '<div class="a-due">'+escHtml(a.openedLabel)+'</div>'
+    + '<div class="a-outcome"><select class="act-outcome" aria-label="Outcome">'+opts+'</select>'
+    + '<input type="text" class="act-custom" placeholder="Or type an outcome…" value="'+a.custom.replace(/"/g,"&quot;")+'" aria-label="Type your own outcome" /></div>'
+    + '</div>';
+}
+function renderMyTasks(){
+  var un = document.getElementById("myTaskUnmapped"); if (un) un.hidden = !myUnmapped();
+  var rows = document.getElementById("myTaskRows"); if (!rows) return;
+  var sub = document.getElementById("myTaskSubtitle");
+  if (sub) sub.textContent = ACCESS.practitionerName ? (ACCESS.practitionerName + " · choose an outcome, then tick to save it") : "Choose an outcome, then tick to save it";
+  var empty = document.getElementById("myTaskEmpty");
+  if (myUnmapped() || !MY_TASKS.length){
+    rows.innerHTML = "";
+    if (empty) empty.classList.toggle("hidden-row", myUnmapped());
+  } else {
+    if (empty) empty.classList.add("hidden-row");
+    rows.innerHTML = MY_TASKS.map(function(a, i){ return myTaskRowHTML(a, i); }).join("");
+    bindActionRows(rows);
+  }
+  renderMyTasksDone();
+}
+function renderMyTasksDone(){
+  var wrap = document.getElementById("myTaskDoneRows"); if (!wrap) return;
+  var empty = document.getElementById("myTaskDoneEmpty");
+  if (!MY_TASKS_DONE.length){ wrap.innerHTML = ""; if (empty) empty.classList.remove("hidden-row"); return; }
+  if (empty) empty.classList.add("hidden-row");
+  wrap.innerHTML = MY_TASKS_DONE.slice(0, 50).map(function(a){
+    return '<div class="list-row" style="grid-template-columns:1.5fr 1fr .8fr"><div class="cell-main">'+escHtml(a.patient)+' — '+escHtml(a.action)+'</div><div class="cell-sub">'+escHtml(a.openedLabel)+'</div><div style="text-align:right"><span class="tag green">'+escHtml(a.savedOutcome || "Done")+'</span></div></div>';
+  }).join("");
+}
+
 /* ---------- map live rows into the dashboard's data ---------- */
 function applyLiveData(data){
   var lists = data.lists, counts = data.counts;
   var pracName = {};
   (lists.practitioners || []).forEach(function(p){ pracName[p.practitioner_id] = cleanName(p.name); });
   var contactName = {};
-  (lists.contacts || []).forEach(function(c){
+  (lists.contacts || []).concat(lists.myContacts || []).forEach(function(c){
     contactName[c.id] = cleanName(((c.first_name || "") + " " + (c.last_name || "")).trim()) || cleanName(c.email) || "Patient";
   });
   function pidOf(id){ return id == null ? null : String(id); }
@@ -3536,6 +3801,58 @@ function applyLiveData(data){
     var cid = String(a.contact_id), d = a.starts_at || "";
     if (!contactPhysioDate[cid] || d > contactPhysioDate[cid]){ contactPhysioDate[cid] = d; contactPhysio[cid] = nm; }
   });
+
+  /* My Work — the signed-in physio's own data only. The lists above
+     are already scoped by the fetches (practitioner_id filter, the
+     fn_my_patient_ids RPC, contact/appointment id filters), so nothing
+     here ever sees another physio's rows. My Tasks are split into open
+     (actionable, with the outcome controls) and completed (read-only).
+     System tasks never arrive here: they match neither the patient
+     filter nor the appointment filter. */
+  var myPid = ACCESS.practitionerId;
+  ACCESS.practitionerName = (myPid != null && pracName[myPid]) ? pracName[myPid] : "";
+  MY_APPTS = [];
+  MY_PATIENTS = [];
+  MY_TASKS = [];
+  MY_TASKS_DONE = [];
+  if (myPid != null){
+    var myContactIds = {};
+    (lists.myPatientIds || []).forEach(function(id){ myContactIds[String(id)] = true; });
+    MY_APPTS = (lists.myAppts || []).map(function(a){
+      return { id: a.id, pid: pidOf(a.contact_id), patient: nameOf(a.contact_id),
+        dateISO: (a.starts_at || "").slice(0,10), label: fmtWhen(a.starts_at), status: a.status || "pending" };
+    }).sort(function(x, y){ return (x.dateISO < y.dateISO ? 1 : (x.dateISO > y.dateISO ? -1 : 0)); });
+    var apptsByContact = {};
+    (lists.myAppts || []).forEach(function(a){
+      if (a.contact_id == null) return;
+      var k = String(a.contact_id);
+      apptsByContact[k] = apptsByContact[k] || [];
+      apptsByContact[k].push(a);
+    });
+    MY_PATIENTS = (lists.myContacts || []).filter(function(c){ return myContactIds[String(c.id)]; }).map(function(c){
+      var mine = apptsByContact[String(c.id)] || [];
+      var last = "";
+      mine.forEach(function(a){ var d = a.starts_at || ""; if (d > last) last = d; });
+      return { id: c.id, name: contactName[c.id] || "Patient", email: c.email || "", phone: c.phone_e164 || "", dnc: !!c.dnc,
+        lastSeen: last ? fmtDay(last) : "—", apptCount: mine.length };
+    }).sort(function(x, y){ return (x.name < y.name ? -1 : 1); });
+    (lists.myTasks || []).forEach(function(t){
+      var dueRaw = t.due_at || t.created_at || "";
+      var dueISO = londonISO(dueRaw) || dueRaw.slice(0,10);
+      var item = { id: t.id, pid: pidOf(t.contact_id), patient: nameOf(t.contact_id),
+        status: t.status || "open", openedLabel: fmtWhen(t.created_at), createdISO: (t.created_at || "").slice(0,10),
+        dueISO: dueISO, slaOverdue: null,
+        priority: (t.priority === "urgent" || t.priority === "high") ? "urgent" : "normal",
+        done: t.status !== "open", outcome: "", custom: "", metadata: t.metadata || {},
+        savedOutcome: (t.metadata && t.metadata.outcome) ? String(t.metadata.outcome) : "",
+        action: stripMarkup(humanize(t.task_type || "Task")), why: stripMarkup(trunc(t.title || "", 170)) };
+      if (t.status === "open") MY_TASKS.push(item);
+      else if (t.status === "completed") MY_TASKS_DONE.push(item);
+    });
+    MY_TASKS.sort(function(x, y){ return (x.createdISO < y.createdISO ? 1 : -1); });
+    MY_TASKS_DONE.sort(function(x, y){ return (x.createdISO < y.createdISO ? 1 : -1); });
+  }
+  renderMyWork();
 
   /* Appointments */
   APPOINTMENTS = (lists.appts || []).map(function(a){
@@ -4018,7 +4335,12 @@ function fetchLive(first){
   var rb = document.getElementById("liveRefresh"); if (rb) rb.disabled = true;
   fetchAll().then(function(data){
     LIVE = data;
-    if (!data.lists.contacts.length && !data.counts.contacts && !data.counts.tasks && !data.counts.appts){
+    /* A physio who only has My Work pages has empty global lists by
+       design (their data comes from the scoped fetches), so the
+       empty-data lock below must not fire for them. The owner keeps
+       the original guard unchanged. */
+    var myExempt = !ACCESS.isOwner && (ACCESS.allowed.has("my-appointments") || ACCESS.allowed.has("my-patients") || ACCESS.allowed.has("my-tasks"));
+    if (!myExempt && !data.lists.contacts.length && !data.counts.contacts && !data.counts.tasks && !data.counts.appts){
       showView("noaccess");
       document.body.classList.add("locked");
       return;
@@ -4090,7 +4412,7 @@ function todayLondon(){
 /* ---------- multi-user access (owner + users) ---------- */
 /* After login, read the signed-in user's admin_users row (role, active)
    and their user_page_access rows, and keep them in the global ACCESS
-   session state. The owner always has all 16 pages.
+   session state. The owner always has all 19 pages.
    SCHEMA (verified against the live project): admin_users is keyed by
    user_id (the auth UUID) and has NO id and NO email column;
    user_page_access stores the page in page_key (not page). Querying
@@ -4113,6 +4435,12 @@ function loadUserAccess(){
       ACCESS.active = !(activeVal === false || activeVal === "false" || activeVal === 0);
       ACCESS.userId = row.user_id || row.id || user.id;
       ACCESS.email = user.email || row.email || "";
+      /* Which physio this login is (admin_users.practitioner_id, set by
+         the owner in Users & Access). Null for the owner and for users
+         with no mapping — their My Work pages show the unmapped note
+         and no patient data. */
+      ACCESS.practitionerId = (row.practitioner_id == null ? null : Number(row.practitioner_id));
+      ACCESS.practitionerName = "";
       if (!ACCESS.active){
         ACCESS.loaded = true;
         applySidebarAccess();
@@ -4158,7 +4486,8 @@ function loadUserAccess(){
         });
         if (!me) return null;
         return withRow({ user_id: me.user_id || me.id || user.id, role: me.role,
-          active: (me.active != null ? me.active : me.is_active) });
+          active: (me.active != null ? me.active : me.is_active),
+          practitioner_id: (me.practitioner_id == null ? null : me.practitioner_id) });
       }).catch(function(){ return null; });
     }
     return sb.from("admin_users").select("*").eq("user_id", user.id).maybeSingle().then(function(r){
@@ -4217,6 +4546,20 @@ var invitePagesEl = document.getElementById("invitePages");
 if (invitePagesEl) invitePagesEl.innerHTML = pageChecksHTML("invite-page", new Set(), false);
 
 var usersLoadedOnce = false;
+/* Practitioner list for the per-user Physio dropdown. The live lists
+   carry it once fetchLive has run; otherwise the Users page fetches it
+   on demand (loadUsersList) and caches it here. */
+var PRACTITIONERS_CACHE = [];
+function practitionerList(){
+  if (typeof LIVE !== "undefined" && LIVE && LIVE.lists && LIVE.lists.practitioners && LIVE.lists.practitioners.length) return LIVE.lists.practitioners;
+  return PRACTITIONERS_CACHE;
+}
+function practitionerOptions(selectedId){
+  return practitionerList().filter(function(p){ return p.active !== false; }).map(function(p){
+    var sel = (selectedId != null && String(p.practitioner_id) === String(selectedId)) ? " selected" : "";
+    return '<option value="' + p.practitioner_id + '"' + sel + '>' + esc(p.name) + '</option>';
+  }).join("");
+}
 function renderUsersList(users){
   var wrap = document.getElementById("usersList"); if (!wrap) return;
   if (!users.length){ wrap.innerHTML = '<div class="empty-note">No users yet.</div>'; return; }
@@ -4249,9 +4592,13 @@ function renderUsersList(users){
       + '<button class="btn small" type="button" data-pages-all="' + idx + '">Tick all</button>'
       + '<button class="btn small" type="button" data-pages-none="' + idx + '">Clear all</button>'
       + '</div>';
+    var physioRow = '<div class="field" style="margin:12px 0 4px"><label>Physio linked to this account</label>'
+      + '<select class="physio-select" data-user-physio="' + idx + '" aria-label="Physio for this user"><option value="">— None —</option>' + practitionerOptions(u.practitioner_id) + '</select>'
+      + '<p class="uc-physio-note" data-user-physio-note>This physio’s own pages (My Appointments, My Patients, My Tasks) show only this physio’s data. Leave as None for staff who are not a physio.</p></div>';
     return '<div class="user-card" data-user-idx="' + idx + '" data-user-id="' + esc(String(uid)) + '" data-user-state="' + (isActive ? "1" : "0") + '">'
       + head
       + '<p class="uc-pages-line">Currently can see ' + allowed.size + ' of ' + ALL_PAGE_KEYS.length + ' pages. Untick a page to remove access, then Save pages.</p>'
+      + physioRow
       + '<div class="page-checks">' + pageChecksHTML("user-page-" + idx, allowed, false) + '</div>'
       + tools
       + actions
@@ -4307,6 +4654,31 @@ function renderUsersList(users){
       });
     });
   });
+  /* Physio dropdown — saves immediately on change (no separate Save
+     button: the mapping is one field, not a set of ticks). The select
+     is wired per render, like the tick-all buttons; the two-tap
+     confirm handler stays scoped to <button>, so it never sees this. */
+  wrap.querySelectorAll("select[data-user-physio]").forEach(function(sel){
+    sel.addEventListener("change", function(){
+      var card = sel.closest(".user-card"); if (!card) return;
+      var idx2 = parseInt(card.getAttribute("data-user-idx"), 10);
+      var u = users[idx2]; if (!u) return;
+      var uid = u.id || u.user_id;
+      var errEl = card.querySelector("[data-user-err]"); if (errEl) errEl.textContent = "";
+      var note = card.querySelector("[data-user-physio-note]");
+      var prev = (u.practitioner_id == null ? "" : String(u.practitioner_id));
+      var val = sel.value === "" ? null : parseInt(sel.value, 10);
+      sel.disabled = true;
+      adminFn({ action: "set_practitioner", user_id: uid, practitioner_id: val }).then(function(){
+        u.practitioner_id = val;
+        sel.disabled = false;
+        if (note) note.textContent = val == null ? "Physio link removed." : "Physio saved — their My Work pages now show only this physio’s data.";
+      }).catch(function(e){
+        sel.disabled = false; sel.value = prev;
+        if (errEl) errEl.textContent = (e && e.message) || "Could not save the physio — try again.";
+      });
+    });
+  });
   wrap.querySelectorAll("[data-pages-all], [data-pages-none]").forEach(function(btn){
     btn.addEventListener("click", function(){
       var card = btn.closest(".user-card"); if (!card) return;
@@ -4321,7 +4693,15 @@ function loadUsersList(){
   adminFn({ action: "list_users" }).then(function(data){
     var users = data.users || data.data || (Array.isArray(data) ? data : []);
     usersLoadedOnce = true;
-    renderUsersList(users);
+    function done(){ renderUsersList(users); }
+    /* The Physio dropdown needs the practitioner list; fetch it on
+       demand when the live load has not provided it yet. */
+    if (practitionerList().length){ done(); return; }
+    if (!sb){ done(); return; }
+    sb.from("practicehub_practitioners").select("practitioner_id,name,active").then(function(r){
+      if (!r.error && r.data) PRACTITIONERS_CACHE = r.data;
+      done();
+    }).catch(function(){ done(); });
   }).catch(function(e){
     if (err) err.textContent = (e && e.message) || "Could not load users — try again.";
     if (wrap) wrap.innerHTML = '<div class="empty-note">Could not load users.</div>';
