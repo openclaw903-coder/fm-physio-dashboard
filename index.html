@@ -186,6 +186,8 @@ h1,h2,h3{font-family:"Fraunces",Georgia,serif;font-weight:600;line-height:1.15;m
 .task-group-label:first-child{margin-top:0}
 .task-row{display:flex;gap:13px;align-items:flex-start;padding:13px 4px;border-bottom:1px solid var(--line)}
 .task-row:last-child{border-bottom:0}
+.task-row.clickable{cursor:pointer;border-radius:6px}
+.task-row.clickable:hover{background:var(--surface-3)}
 .task-body{flex:1;min-width:0}
 .task-title{font-weight:700;font-size:14.5px}
 .task-title.is-done{color:var(--muted);text-decoration:line-through}
@@ -561,8 +563,9 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
 .user-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
 .invite-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
 .invite-type-row{display:flex;gap:18px;align-items:center;padding:2px 0}
-.type-opt{display:inline-flex;gap:6px;align-items:center;font-weight:600;cursor:pointer}
+.type-opt{display:inline-flex;gap:6px;align-items:center;font-weight:600;cursor:pointer;padding:8px 12px;border:1px solid transparent;border-radius:10px}
 .type-opt input{width:18px;height:18px;accent-color:var(--teal-deep);flex:none;cursor:pointer}
+.type-opt.selected{background:var(--teal-soft);border-color:var(--teal-deep);font-weight:800}
 @media (max-width:640px){.invite-grid{grid-template-columns:1fr}}
 .btn.confirm{background:var(--amber-bg);border-color:var(--amber-dot);color:var(--amber)}
 .user-card.owner-card{background:var(--surface-3)}
@@ -1344,7 +1347,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
       <!-- ======== MY PATIENTS ======== -->
       <section class="page" id="page-my-patients">
         <div class="page-head">
-          <div><h2>My Patients</h2><p>Patients whose most recent appointment was with you.</p></div>
+          <div><h2>My Patients</h2><p id="myPatSubtitle">Patients whose most recent appointment was with you.</p></div>
         </div>
         <div class="panel" id="myPatUnmapped" hidden>
           <div class="empty-note">No physio linked to this account — ask the owner.</div>
@@ -1521,6 +1524,9 @@ var PAGE_DEFS = [
   {key:"dnc", label:"Do Not Call"}
 ];
 var ALL_PAGE_KEYS = PAGE_DEFS.map(function(p){ return p.key; });
+/* Pages the owner can grant to a user. AI Agents is owner-only and is
+   never offered at invite time or on a staff card. */
+var GRANTABLE_PAGE_KEYS = ALL_PAGE_KEYS.filter(function(k){ return k !== "ai"; });
 /* Session access state — filled after login from admin_users +
    user_page_access by the live-data script. Until loaded, nothing is
    gated (the login gate covers the screen anyway). */
@@ -1529,6 +1535,9 @@ function canAccessPage(id){
   if(!ACCESS.loaded) return true;
   if(id==="denied") return true;
   if(ACCESS.isOwner) return true;
+  /* AI is owner-only — even if a stale user_page_access row says
+     otherwise. The assistant reads everything via service role. */
+  if(id==="ai") return false;
   if(id==="users") return false;
   if(id==="patient" || id==="physio") return ACCESS.allowed.has("patients");
   return ACCESS.allowed.has(id);
@@ -1536,9 +1545,15 @@ function canAccessPage(id){
 function applySidebarAccess(){
   document.querySelectorAll(".nav-item[data-page]").forEach(function(b){
     var p = b.getAttribute("data-page");
-    if(p==="users"){ b.hidden = !(ACCESS.loaded && ACCESS.isOwner); return; }
+    if(p==="users" || p==="ai"){ b.hidden = !(ACCESS.loaded && ACCESS.isOwner); return; }
     b.hidden = ACCESS.loaded && !ACCESS.isOwner && !ACCESS.allowed.has(p);
   });
+  /* The AI assistant widget is owner-only too — same data access as
+     the AI page, via the service-role function. */
+  var fab = document.getElementById("assistFab");
+  if (fab) fab.style.display = (ACCESS.loaded && !ACCESS.isOwner) ? "none" : "";
+  var tip = document.getElementById("assistTip");
+  if (tip) tip.style.display = (ACCESS.loaded && !ACCESS.isOwner) ? "none" : "";
   /* Hide a group label when every item under it is hidden. */
   document.querySelectorAll(".nav-group").forEach(function(g){
     var items = g.querySelectorAll(".nav-item[data-page]");
@@ -1638,8 +1653,8 @@ function kvRow(k, v){
 }
 function filePanels(id, p){
   var f = FILES[id] || {seq:"None active", tasks:[]};
-  var tasks = f.tasks.length ? f.tasks.map(function(t){
-    return '<div class="task-row"><div class="task-body"><div class="task-title">'+escHtml(t.t)+' <span class="prio '+t.p+'">'+t.p.toUpperCase()+'</span></div><div class="task-meta">'+escHtml(t.type)+' · '+t.st+(t.due ? ' · '+t.due : '')+'</div></div></div>';
+  var tasks = f.tasks.length ? f.tasks.map(function(t, i){
+    return '<div class="task-row clickable" data-task-detail="'+i+'" role="button" tabindex="0" title="Open task detail"><div class="task-body"><div class="task-title">'+escHtml(t.t)+' <span class="prio '+t.p+'">'+t.p.toUpperCase()+'</span></div><div class="task-meta">'+escHtml(t.type)+' · '+t.st+(t.due ? ' · '+t.due : '')+'</div></div></div>';
   }).join("") : '<div class="empty-note">No tasks on file.</div>';
   return '<div class="grid-2eq" style="margin-top:14px">'
     + '<div class="panel"><h3>Tasks</h3>'+tasks+'</div>'
@@ -1652,6 +1667,37 @@ function filePanels(id, p){
     + kvRow("GoHighLevel ID", "Not recorded")
     + '<div style="display:flex;justify-content:space-between;gap:14px;padding:8px 0"><span style="color:var(--muted);font-size:13px;font-weight:700;flex:none">PracticeHub ID</span><span style="font-weight:700;font-size:13.5px;text-align:right">Not recorded</span></div>'
     + '</div></div>';
+}
+
+var currentPatientId = null;
+/* Task detail — opened from the Tasks box on a patient file. Shows the
+   full task; Back returns to the same patient file. */
+function openTaskDetail(patientId, taskIdx){
+  var p = PATIENTS[patientId] || (window.EXTRA_PATIENTS||{})[patientId]; if(!p) return;
+  var f = FILES[patientId] || {tasks:[]};
+  var t = (f.tasks || [])[taskIdx]; if(!t) return;
+  var rows = "";
+  rows += kvRow("Title", escHtml(t.t));
+  rows += kvRow("Type", escHtml(t.typeLabel || t.type));
+  rows += kvRow("Status", escHtml(t.st));
+  rows += kvRow("Opened", escHtml(t.createdLabel || "—"));
+  rows += kvRow("Priority", escHtml(t.prioLabel || t.p));
+  rows += kvRow("Reason", escHtml(t.reason || "—"));
+  rows += kvRow("Department", escHtml(t.department || "—"));
+  rows += kvRow("Due", escHtml(t.due || "—"));
+  if (t.slaLabel) rows += kvRow("SLA due", escHtml(t.slaLabel));
+  if (t.completedLabel) rows += kvRow("Completed", escHtml(t.completedLabel));
+  rows += kvRow("Outcome", escHtml(t.outcome || "—"));
+  if (t.outcomeAt) rows += kvRow("Outcome time", escHtml(t.outcomeAt));
+  if (t.outcomeBy) rows += kvRow("Outcome by", escHtml(t.outcomeBy));
+  rows += kvRow("Patient", escHtml(p.name));
+  rows += kvRow("Linked appointment", escHtml(t.apptLabel || "No appointment linked"));
+  document.getElementById("profileWrap").innerHTML =
+    '<button class="btn" id="taskDetailBack" style="margin-bottom:16px">← Back to ' + escHtml(p.name) + '</button>'
+    + '<div class="panel"><h3>Task detail</h3>' + rows + '</div>';
+  var bb = document.getElementById("backBtn"); if (bb) bb.style.display = "none";
+  document.getElementById("taskDetailBack").addEventListener("click", function(){ openPatient(patientId); });
+  showPage("patient");
 }
 
 /* ================= PATIENT PROFILE ================= */
@@ -1667,6 +1713,8 @@ function recBox(c){
 }
 function openPatient(id){
   var p = PATIENTS[id] || (window.EXTRA_PATIENTS||{})[id]; if(!p) return;
+  currentPatientId = id;
+  var bb0 = document.getElementById("backBtn"); if (bb0) bb0.style.display = "";
   rememberScroll();
   var tags = "";
   if(p.dnc) tags += '<span class="tag dnc">Do Not Call</span>';
@@ -1721,6 +1769,10 @@ function openPatient(id){
       btn.innerHTML = on ? PAUSE : PLAY;
       btn.setAttribute("aria-label", on ? "Pause recording" : "Play recording");
     });
+  });
+  document.querySelectorAll("#profileWrap [data-task-detail]").forEach(function(el){
+    el.addEventListener("click", function(){ openTaskDetail(currentPatientId, parseInt(el.getAttribute("data-task-detail"), 10)); });
+    el.addEventListener("keydown", function(e){ if (e.key === "Enter"){ e.preventDefault(); openTaskDetail(currentPatientId, parseInt(el.getAttribute("data-task-detail"), 10)); } });
   });
   showPage("patient");
 }
@@ -3507,7 +3559,7 @@ function fetchAll(){
   C("interactions","interactions"); C("sequences","sequence_instances");
 
   var lists = {};
-  var TASK_COLS = "id,contact_id,task_type,title,status,priority,created_at,due_at,completed_at,metadata";
+  var TASK_COLS = "id,contact_id,task_type,title,status,priority,created_at,due_at,completed_at,metadata,reason,department";
   var APPT_COLS = "id,contact_id,practitioner_id,status,starts_at,cancel_reason,cancel_date";
   /* Per-page data gating — a list is only fetched when at least one
      page that uses it is allowed for the signed-in user. A hidden
@@ -3666,7 +3718,10 @@ function applyDeposits(rows){
    text + tick checkbox) and the same delegated save handlers, so the
    outcome is written to Supabase exactly like an admin's. */
 function myUnmapped(){
-  return ACCESS.practitionerId == null;
+  /* The owner is never "unmapped" — they see everything and cannot be
+     linked to a physio. Only a non-owner with no mapping sees the
+     unmapped note and no patient data. */
+  return !ACCESS.isOwner && ACCESS.practitionerId == null;
 }
 function renderMyWork(){
   renderMyAppts();
@@ -3678,7 +3733,7 @@ function renderMyAppts(){
   var card = document.getElementById("myApptCard"); if (card) card.hidden = myUnmapped();
   var rows = document.getElementById("myApptRows"); if (!rows) return;
   var sub = document.getElementById("myApptSubtitle");
-  if (sub) sub.textContent = ACCESS.practitionerName ? (ACCESS.practitionerName + " · your appointments · all dates") : "Your appointments · all dates";
+  if (sub) sub.textContent = ACCESS.isOwner ? "All appointments · all dates" : (ACCESS.practitionerName ? (ACCESS.practitionerName + " · your appointments · all dates") : "Your appointments · all dates");
   var empty = document.getElementById("myApptEmpty");
   if (myUnmapped() || !MY_APPTS.length){
     rows.innerHTML = "";
@@ -3694,6 +3749,8 @@ function renderMyAppts(){
 function renderMyPatients(){
   var un = document.getElementById("myPatUnmapped"); if (un) un.hidden = !myUnmapped();
   var card = document.getElementById("myPatCard"); if (card) card.hidden = myUnmapped();
+  var sub = document.getElementById("myPatSubtitle");
+  if (sub) sub.textContent = ACCESS.isOwner ? "All patients." : "Patients whose most recent appointment was with you.";
   var rows = document.getElementById("myPatRows"); if (!rows) return;
   var empty = document.getElementById("myPatEmpty");
   if (myUnmapped() || !MY_PATIENTS.length){
@@ -3727,7 +3784,7 @@ function openMyPatient(cid){
       + kvRow("Phone", escHtml(p.phone || "—"))
       + kvRow("Email", escHtml(p.email || "—"))
       + kvRow("Do Not Call", p.dnc ? "Yes" : "No")
-      + kvRow("Appointments with you", String(p.apptCount)) + '</div>';
+      + kvRow(ACCESS.isOwner ? "Appointments" : "Appointments with you", String(p.apptCount)) + '</div>';
     var hist = rows.length ? rows.map(function(h){
       var tag = h.status === "processed" ? "green" : (h.status === "cancelled" ? "red" : (h.status === "missed" ? "amber" : "blue"));
       return '<div class="list-row" style="grid-template-columns:1.5fr 1fr .8fr"><div class="cell-main">' + escHtml(fmtWhen(h.starts_at)) + '</div><div class="cell-sub">' + escHtml(h.practitioner_name || "—") + '</div><div style="text-align:right"><span class="tag ' + tag + '">' + escHtml(humanize(h.status || "")) + '</span></div></div>';
@@ -3764,7 +3821,7 @@ function renderMyTasks(){
   var un = document.getElementById("myTaskUnmapped"); if (un) un.hidden = !myUnmapped();
   var rows = document.getElementById("myTaskRows"); if (!rows) return;
   var sub = document.getElementById("myTaskSubtitle");
-  if (sub) sub.textContent = ACCESS.practitionerName ? (ACCESS.practitionerName + " · choose an outcome, then tick to save it") : "Choose an outcome, then tick to save it";
+  if (sub) sub.textContent = ACCESS.isOwner ? "All tasks — choose an outcome, then tick to save it" : (ACCESS.practitionerName ? (ACCESS.practitionerName + " · choose an outcome, then tick to save it") : "Choose an outcome, then tick to save it");
   var empty = document.getElementById("myTaskEmpty");
   if (myUnmapped() || !MY_TASKS.length){
     rows.innerHTML = "";
@@ -3823,28 +3880,35 @@ function applyLiveData(data){
   MY_PATIENTS = [];
   MY_TASKS = [];
   MY_TASKS_DONE = [];
-  if (myPid != null){
+  /* Owner mode: the owner sees ALL data in My Work — they cannot be
+     mapped to a physio. A mapped physio sees only their scoped lists;
+     an unmapped non-owner sees nothing (myUnmapped). */
+  var ownerMode = ACCESS.isOwner;
+  var srcAppts = myPid != null ? (lists.myAppts || []) : (ownerMode ? (lists.appts || []) : []);
+  var srcContacts = myPid != null ? (lists.myContacts || []) : (ownerMode ? (lists.contacts || []) : []);
+  var srcTasks = myPid != null ? (lists.myTasks || []) : (ownerMode ? (lists.tasks || []) : []);
+  if (myPid != null || ownerMode){
     var myContactIds = {};
     (lists.myPatientIds || []).forEach(function(id){ myContactIds[String(id)] = true; });
-    MY_APPTS = (lists.myAppts || []).map(function(a){
+    MY_APPTS = srcAppts.map(function(a){
       return { id: a.id, pid: pidOf(a.contact_id), patient: nameOf(a.contact_id),
         dateISO: (a.starts_at || "").slice(0,10), label: fmtWhen(a.starts_at), status: a.status || "pending" };
     }).sort(function(x, y){ return (x.dateISO < y.dateISO ? 1 : (x.dateISO > y.dateISO ? -1 : 0)); });
     var apptsByContact = {};
-    (lists.myAppts || []).forEach(function(a){
+    srcAppts.forEach(function(a){
       if (a.contact_id == null) return;
       var k = String(a.contact_id);
       apptsByContact[k] = apptsByContact[k] || [];
       apptsByContact[k].push(a);
     });
-    MY_PATIENTS = (lists.myContacts || []).filter(function(c){ return myContactIds[String(c.id)]; }).map(function(c){
+    MY_PATIENTS = srcContacts.filter(function(c){ return ownerMode || myContactIds[String(c.id)]; }).map(function(c){
       var mine = apptsByContact[String(c.id)] || [];
       var last = "";
       mine.forEach(function(a){ var d = a.starts_at || ""; if (d > last) last = d; });
       return { id: c.id, name: contactName[c.id] || "Patient", email: c.email || "", phone: c.phone_e164 || "", dnc: !!c.dnc,
         lastSeen: last ? fmtDay(last) : "—", apptCount: mine.length };
     }).sort(function(x, y){ return (x.name < y.name ? -1 : 1); });
-    (lists.myTasks || []).forEach(function(t){
+    srcTasks.forEach(function(t){
       var dueRaw = t.due_at || t.created_at || "";
       var dueISO = londonISO(dueRaw) || dueRaw.slice(0,10);
       var item = { id: t.id, pid: pidOf(t.contact_id), patient: nameOf(t.contact_id),
@@ -4029,6 +4093,10 @@ function applyLiveData(data){
   });
   PHYSIO_WEEK = Object.keys(wkMap).map(function(k){ return wkMap[k]; }).sort(function(a, b){ return (b.r - a.r) || (b.c - a.c); });
 
+  /* Appointments by id — for the task detail view (linked appointment). */
+  var apptById = {};
+  (lists.appts || []).forEach(function(a){ apptById[String(a.id)] = a; });
+
   /* Patients */
   var avCycle = ["", "a2", "a3", "a4", "a5", "a6"];
   var newPatients = {}, newLast = {}, newFirst = {};
@@ -4055,7 +4123,24 @@ function applyLiveData(data){
     newFirst[id] = appts.length ? appts.map(function(a){ return (a.starts_at || "").slice(0,10); }).sort()[0] : (c.created_at || "").slice(0,10);
     var seqs = (lists.sequences || []).filter(function(s){ return String(s.contact_id) === id; });
     FILES[id] = { seq: seqs.length ? "Seq \u00b7 " + (seqs[0].status || "") : "None",
-      tasks: tasks.map(function(t){ return { t: stripMarkup(trunc(t.title || "", 110)), type: stripMarkup(t.task_type || ""), st: t.status === "open" ? "Open" : (t.status === "completed" ? "Done" : (t.status === "cancelled" ? "Cancelled" : humanize(t.status || ""))), p: t.priority === "high" || t.priority === "urgent" ? "high" : (t.priority === "low" ? "low" : "med"), due: t.due_at ? fmtDay(t.due_at) : "" }; }) };
+      tasks: tasks.map(function(t){
+        var md = t.metadata || {};
+        var slaRow = slaMap ? slaMap[String(t.id)] : null;
+        var appt = (md.appointment_id != null) ? apptById[String(md.appointment_id)] : null;
+        return { id: t.id,
+          t: stripMarkup(trunc(t.title || "", 110)), type: stripMarkup(t.task_type || ""), typeLabel: humanize(t.task_type || "Task"),
+          st: t.status === "open" ? "Open" : (t.status === "completed" ? "Done" : (t.status === "cancelled" ? "Cancelled" : humanize(t.status || ""))),
+          p: t.priority === "high" || t.priority === "urgent" ? "high" : (t.priority === "low" ? "low" : "med"),
+          prioLabel: t.priority === "high" || t.priority === "urgent" ? "High" : (t.priority === "low" ? "Low" : "Medium"),
+          due: t.due_at ? fmtDay(t.due_at) : "",
+          createdLabel: fmtWhen(t.created_at),
+          completedLabel: t.completed_at ? fmtWhen(t.completed_at) : "",
+          slaLabel: (slaRow && slaRow.sla_due_at) ? fmtWhen(slaRow.sla_due_at) : "",
+          reason: stripMarkup(t.reason || ""), department: stripMarkup(t.department || ""),
+          outcome: stripMarkup(md.outcome || ""), outcomeAt: md.outcome_at ? fmtWhen(md.outcome_at) : "",
+          outcomeBy: stripMarkup(md.outcome_by || ""),
+          apptLabel: appt ? (fmtWhen(appt.starts_at) + " · " + (pracName[appt.practitioner_id] || "") + " · " + humanize(appt.status || "")) : "" };
+      }) };
   });
   PATIENTS = newPatients; LAST_ISO = newLast; FIRST_APPT = newFirst;
   window.EXTRA_PATIENTS = {};
@@ -4561,12 +4646,20 @@ function refreshInvitePhysioOptions(){
   var cur = sel.value;
   sel.innerHTML = '<option value="">— Choose a physio —</option>' + practitionerOptions(cur === "" ? null : cur);
 }
-/* The invite form is user-type-first. Physio: the physio dropdown shows,
-   only the 3 My Work pages are ticked, and the AI Agents checkbox is not
-   offered at all (a physio must never be offered the AI page). Other
-   staff: today's behaviour — all 19 pages, none ticked. Switching type
-   resets the physio selection and the ticks to that type's defaults; the
-   typed email and name are separate inputs, so they are kept. */
+/* Highlight the selected user-type option — the checked label gets the
+   terracotta tint + border + bold text; the other stays plain. */
+function syncInviteTypeHighlight(){
+  document.querySelectorAll('input[name="invite-type"]').forEach(function(r){
+    var lab = r.closest("label");
+    if (lab) lab.classList.toggle("selected", r.checked);
+  });
+}
+/* The invite form is user-type-first. Physio: the physio dropdown shows
+   and only the 3 My Work pages are ticked. Other staff: all grantable
+   pages, none ticked. The AI Agents checkbox is never offered at invite
+   time, for either type — AI is owner-only. Switching type resets the
+   physio selection and the ticks to that type's defaults; the typed
+   email and name are separate inputs, so they are kept. */
 function renderInvitePages(){
   var type = inviteUserType();
   var row = document.getElementById("invitePhysioRow");
@@ -4577,8 +4670,9 @@ function renderInvitePages(){
     refreshInvitePhysioOptions();
     if (invitePagesEl) invitePagesEl.innerHTML = pageChecksHTML("invite-page", new Set(MY_PAGE_KEYS), false, ["ai"]);
   } else {
-    if (invitePagesEl) invitePagesEl.innerHTML = pageChecksHTML("invite-page", new Set(), false);
+    if (invitePagesEl) invitePagesEl.innerHTML = pageChecksHTML("invite-page", new Set(), false, ["ai"]);
   }
+  syncInviteTypeHighlight();
 }
 if (invitePagesEl) renderInvitePages();
 document.querySelectorAll('input[name="invite-type"]').forEach(function(r){
@@ -4659,6 +4753,10 @@ function renderUsersList(users){
     var activeVal = (u.active != null ? u.active : (u.is_active != null ? u.is_active : true));
     var isActive = activeVal !== false;
     var allowed = isOwner ? new Set(ALL_PAGE_KEYS) : userAllowedPages(u);
+    /* AI is owner-only: never show it on a staff card, even if a stale
+       row still allows it — the guard in canAccessPage blocks it anyway,
+       and Save can never re-grant it from here. */
+    if (!isOwner) allowed.delete("ai");
     var name = esc(u.display_name || u.name || u.email || "User");
     var email = esc(u.email || "");
     var roleTag = isOwner ? '<span class="tag green">Owner</span>' : '<span class="tag blue">User</span>';
@@ -4692,9 +4790,9 @@ function renderUsersList(users){
       + '<p class="uc-physio-note" data-user-physio-note>' + physioNote + '</p></div>';
     return '<div class="user-card" data-user-idx="' + idx + '" data-user-id="' + esc(String(uid)) + '" data-user-state="' + (isActive ? "1" : "0") + '">'
       + head
-      + '<p class="uc-pages-line">Currently can see ' + allowed.size + ' of ' + ALL_PAGE_KEYS.length + ' pages. Untick a page to remove access, then Save pages.</p>'
+      + '<p class="uc-pages-line">Currently can see ' + allowed.size + ' of ' + GRANTABLE_PAGE_KEYS.length + ' pages. Untick a page to remove access, then Save pages.</p>'
       + physioRow
-      + '<div class="page-checks">' + pageChecksHTML("user-page-" + idx, allowed, false) + '</div>'
+      + '<div class="page-checks">' + pageChecksHTML("user-page-" + idx, allowed, false, ["ai"]) + '</div>'
       + tools
       + actions
       + '<p class="users-err" data-user-err role="alert"></p>'
