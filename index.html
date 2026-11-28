@@ -1721,13 +1721,11 @@ function filePanels(id, p){
   return '<div class="grid-2eq" style="margin-top:14px">'
     + '<div class="panel"><h3>Tasks</h3>'+tasks+'</div>'
     + '<div class="panel"><h3>On file</h3>'
-    + kvRow("Deposit status", "Not recorded")
     + kvRow("Do Not Call", p.dnc ? "Yes" : "No")
     + kvRow("Human takeover", p.takeover ? "Yes" : "No")
-    + kvRow("Marketing consent", "—")
     + kvRow("Sequence", escHtml(f.seq))
-    + kvRow("GoHighLevel ID", "Not recorded")
-    + '<div style="display:flex;justify-content:space-between;gap:14px;padding:8px 0"><span style="color:var(--muted);font-size:13px;font-weight:700;flex:none">PracticeHub ID</span><span style="font-weight:700;font-size:13.5px;text-align:right">Not recorded</span></div>'
+    + kvRow("GoHighLevel ID", escHtml(p.ghl || "Not recorded"))
+    + '<div style="display:flex;justify-content:space-between;gap:14px;padding:8px 0"><span style="color:var(--muted);font-size:13px;font-weight:700;flex:none">PracticeHub ID</span><span style="font-weight:700;font-size:13.5px;text-align:right">' + escHtml(p.ph || "Not recorded") + '</span></div>'
     + '</div></div>';
 }
 
@@ -4099,7 +4097,7 @@ function fetchAll(){
     });
   }
   var listJobs = [
-    gated(["patients","overview","owner-overview","enquiries","dnc","admin-today"], function(){ return listAll("contacts","id,first_name,last_name,email,phone_e164,dnc,human_takeover,created_at","created_at",false).then(function(d){ lists.contacts = d; }); }, function(d){ lists.contacts = d; }),
+    gated(["patients","overview","owner-overview","enquiries","dnc","admin-today"], function(){ return listAll("contacts","id,first_name,last_name,email,phone_e164,dnc,human_takeover,ghl_contact_id,practicehub_patient_id,created_at","created_at",false).then(function(d){ lists.contacts = d; }); }, function(d){ lists.contacts = d; }),
     gated(["admin-today","overview","owner-overview","team","complaints"], function(){ return listAll("tasks",TASK_COLS,"created_at",false).then(function(d){ lists.tasks = d; }); }, function(d){ lists.tasks = d; }),
     gated(["appointments","overview","owner-overview","admin-today","unprocessed","patients","cancellations","team","performance","progress"], function(){ return listAll("appointments",APPT_COLS,"starts_at",false).then(function(d){ lists.appts = d; }); }, function(d){ lists.appts = d; }),
     gated(["enquiries","ai","overview","patients"], function(){ return listAll("interactions","id,contact_id,provider,channel,direction,outcome,summary,created_at","created_at",false).then(function(d){ lists.interactions = d; }); }, function(d){ lists.interactions = d; }),
@@ -4879,6 +4877,7 @@ function applyLiveData(data){
     newPatients[id] = { name: nm,
       initials: nmRaw.split(" ").map(function(w){ return w.charAt(0); }).join("").slice(0,2).toUpperCase(),
       av: avCycle[idx % avCycle.length], phone: cleanName(c.phone_e164 || ""), email: cleanName(c.email || ""), physio: "\u2014",
+      ghl: cleanName(c.ghl_contact_id || ""), ph: cleanName(c.practicehub_patient_id || ""),
       appts: appts.length, interactions: ints.length, openTasks: tasks.filter(function(t){ return t.status === "open"; }).length,
       last: fmtDay(lastTs), dnc: !!c.dnc, takeover: !!c.human_takeover, next: "\u2014",
       history: acts.length ? acts.map(function(h){ return { d: fmtWhen(h.ts), dot: h.dot, title: h.title, brief: h.brief, detail: h.detail, convId: h.convId || null }; })
