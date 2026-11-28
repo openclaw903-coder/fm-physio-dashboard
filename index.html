@@ -562,6 +562,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
 .invite-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
 .invite-type-row{display:flex;gap:18px;align-items:center;padding:2px 0}
 .type-opt{display:inline-flex;gap:6px;align-items:center;font-weight:600;cursor:pointer}
+.type-opt input{width:18px;height:18px;accent-color:var(--teal-deep);flex:none;cursor:pointer}
 @media (max-width:640px){.invite-grid{grid-template-columns:1fr}}
 .btn.confirm{background:var(--amber-bg);border-color:var(--amber-dot);color:var(--amber)}
 .user-card.owner-card{background:var(--surface-3)}
@@ -1398,7 +1399,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
               <div class="field"><label for="inviteName">Display name</label><input type="text" id="inviteName" autocomplete="off" required /></div>
             </div>
             <div class="field" id="invitePhysioRow" hidden><label for="invitePhysio">Which physio?</label><select id="invitePhysio" aria-label="Which physio"><option value="">— Choose a physio —</option></select><p class="uc-physio-note">Their My Work pages (My Appointments, My Patients, My Tasks) will show only this physio’s data.</p></div>
-            <div class="field"><label>Pages this user can see</label><div class="page-checks" id="invitePages"></div></div>
+            <div class="field"><label>Pages this user can see</label><div class="page-checks" id="invitePages"></div><div class="page-tools"><span class="pt-label">Pages:</span><button class="btn small" type="button" id="invitePagesAll">Tick all</button><button class="btn small" type="button" id="invitePagesNone">Clear all</button></div></div>
             <p class="users-err" id="inviteErr" role="alert"></p>
             <p class="users-ok" id="inviteOk" role="status"></p>
             <button class="btn primary" type="submit" id="inviteBtn">Send invite</button>
@@ -4582,6 +4583,22 @@ function renderInvitePages(){
 if (invitePagesEl) renderInvitePages();
 document.querySelectorAll('input[name="invite-type"]').forEach(function(r){
   r.addEventListener("change", renderInvitePages);
+});
+/* Invite-form Tick all / Clear all. They only touch the checkboxes
+   actually rendered in #invitePages (18 in Physio mode — the AI Agents
+   box is not rendered there and can never be ticked by Tick all;
+   19 in Other staff mode). Switching user type re-renders the grid via
+   renderInvitePages, so the type defaults always win. Buttons are
+   type="button" so they never submit the invite form. */
+var invitePagesAllBtn = document.getElementById("invitePagesAll");
+if (invitePagesAllBtn) invitePagesAllBtn.addEventListener("click", function(){
+  var el = document.getElementById("invitePages");
+  if (el) el.querySelectorAll('input[type="checkbox"]').forEach(function(c){ c.checked = true; });
+});
+var invitePagesNoneBtn = document.getElementById("invitePagesNone");
+if (invitePagesNoneBtn) invitePagesNoneBtn.addEventListener("click", function(){
+  var el = document.getElementById("invitePages");
+  if (el) el.querySelectorAll('input[type="checkbox"]').forEach(function(c){ c.checked = false; });
 });
 
 var usersLoadedOnce = false;
