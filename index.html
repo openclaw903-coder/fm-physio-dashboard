@@ -893,7 +893,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
             <div class="rows">
               <div class="row-item" data-goto="admin-today"><div class="row-main"><div class="row-title">Due today</div><div class="row-sub">Admin actions due today</div></div><div class="row-side"><div class="t num" id="ovDueToday">—</div></div></div>
               <div class="row-item" data-goto="unprocessed"><div class="row-main"><div class="row-title">Unprocessed appointments</div><div class="row-sub">Pending appointments</div></div><div class="row-side"><div class="t num" id="ovUnproc">—</div></div></div>
-              <div class="row-item" data-goto="team"><div class="row-main"><div class="row-title">Waiting on physios</div><div class="row-sub">Not recorded</div></div><div class="row-side"><div class="t num">—</div></div></div>
+              <div class="row-item" data-goto="team"><div class="row-main"><div class="row-title">Waiting on physios</div><div class="row-sub" id="ovWaitingSub">Open tasks linked to a physio</div></div><div class="row-side"><div class="t num" id="ovWaiting">—</div></div></div>
             </div>
           </div>
 
@@ -949,7 +949,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
         <div class="kpis">
           <button class="kpi kpi-link" data-goto="admin-today"><div class="k-label">Overdue from yesterday</div><div class="k-value num alert" id="ooOverdue">—</div><div class="k-sub">Tasks past due</div></button>
           <button class="kpi kpi-link" data-goto="admin-today"><div class="k-label">Actions due today</div><div class="k-value num" id="ooDueToday">—</div><div class="k-sub">Admin actions due today</div></button>
-          <button class="kpi kpi-link" data-goto="team"><div class="k-label">Waiting on physios</div><div class="k-value num">—</div><div class="k-sub">Not recorded</div></button>
+          <button class="kpi kpi-link" data-goto="team"><div class="k-label">Waiting on physios</div><div class="k-value num" id="ooWaiting">—</div><div class="k-sub" id="ooWaitingSub">Open tasks linked to a physio</div></button>
           <button class="kpi kpi-link" data-goto="unprocessed"><div class="k-label">Unprocessed appointments</div><div class="k-value num" id="ooUnproc">—</div><div class="k-sub">Appointments pending</div></button>
           <button class="kpi kpi-link" data-goto="complaints"><div class="k-label">Open refunds and complaints</div><div class="k-value num" id="ooCompRef">—</div><div class="k-sub">Complaints / refunds · all time</div></button>
           <button class="kpi kpi-link" data-goto="patients"><div class="k-label">Referrals to check</div><div class="k-value num" id="ooRefCount">0</div><div class="k-sub" id="ooRefSub">From Supabase</div></button>
@@ -961,11 +961,8 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
           <button class="kpi kpi-link" data-goto="cancellations"><div class="k-label">Rebook rate</div><div class="k-value num" id="ooRebookRate">—</div><div class="k-sub" id="ooRebookRateSub">—</div></button>
           <button class="kpi kpi-link" data-goto="cancellations"><div class="k-label">Cancel no rebook</div><div class="k-value num" id="ooCancelNoRebook">—</div><div class="k-sub" id="ooCancelNoRebookSub">—</div></button>
           <button class="kpi kpi-link" data-goto="cancellations"><div class="k-label">DNAs</div><div class="k-value num" id="ooDna">—</div><div class="k-sub" id="ooDnaSub">All time</div></button>
-          <button class="kpi kpi-link" data-goto="ai"><div class="k-label">Called within 10 mins</div><div class="k-value nodata">No data yet</div><div class="k-sub">Not tracked</div></button>
           <button class="kpi kpi-link" data-goto="payments"><div class="k-label">Average spend per appointment</div><div class="k-value nodata">No data yet</div><div class="k-sub">No payment data yet</div></button>
           <button class="kpi kpi-link" data-goto="payments"><div class="k-label">Late cancellation fees</div><div class="k-value nodata">No data yet</div><div class="k-sub">No payment data yet</div></button>
-          <button class="kpi kpi-link" data-goto="progress"><div class="k-label">Patient satisfaction (NPS)</div><div class="k-value nodata">No data yet</div><div class="k-sub">Not tracked</div></button>
-          <button class="kpi kpi-link" data-goto="appointments"><div class="k-label">Diary fill (next 7 days)</div><div class="k-value nodata">No data yet</div><div class="k-sub">Not tracked</div></button>
           <button class="kpi kpi-link" data-goto="enquiries"><div class="k-label">Lost leads</div><div class="k-value num" id="ooLost">—</div><div class="k-sub">Enquiries not booked</div></button>
           <button class="kpi kpi-link" data-goto="payments"><div class="k-label">Payment issues</div><div class="k-value nodata">No data yet</div><div class="k-sub">No payment data yet</div></button>
           <button class="kpi kpi-link" data-goto="complaints"><div class="k-label">Complaints / refunds</div><div class="k-value num" id="ooCompRef2">—</div><div class="k-sub">Complaints / refunds · all time</div></button>
@@ -1265,6 +1262,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
           <div class="kpi"><div class="k-label">Total cost</div><div class="k-value num" id="aiTotalCost" style="font-size:25px;margin-top:13px">No data yet</div><div class="k-sub" id="aiCostSub">Retell/Vapi billing</div></div>
           <div class="kpi"><div class="k-label">Minutes used</div><div class="k-value num" id="aiTotalMinutes" style="font-size:25px;margin-top:13px">No data yet</div><div class="k-sub" id="aiMinutesSub">No duration data yet</div></div>
         </div>
+        <div class="cell-sub" id="aiCallsLine" style="margin:2px 0 14px">Supabase call records · —</div>
         <div class="agent-grid" id="aiAgentGrid">
           <div class="agent-card">
             <div class="agent-top">
@@ -1589,30 +1587,6 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
         <button class="btn danger small" type="button" id="assistDelete" hidden>Delete key</button>
         <span class="cell-sub" id="assistSaveNote" role="status"></span>
       </div>
-      <div style="margin-top:16px">
-        <div class="cell-sub" style="font-weight:800;margin-bottom:8px">AI call costs — Retell + Vapi</div>
-        <div class="mode-line"><span class="mode-dot" id="costCfgDot"></span><span id="costCfgStatus">Checking call-cost keys…</span></div>
-        <div class="field">
-          <label for="retellKey">Retell API key</label>
-          <input type="password" id="retellKey" placeholder="Paste your Retell API key" autocomplete="off" />
-          <div class="f-note">From the Retell dashboard → API Keys. Saved on the secure server only — never shown again.</div>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <button class="btn primary small" type="button" id="retellSave">Save Retell key</button>
-          <button class="btn danger small" type="button" id="retellDelete" hidden>Delete Retell key</button>
-          <span class="cell-sub" id="retellNote" role="status"></span>
-        </div>
-        <div class="field" style="margin-top:10px">
-          <label for="vapiKey">Vapi private key</label>
-          <input type="password" id="vapiKey" placeholder="Paste your Vapi private key" autocomplete="off" />
-          <div class="f-note">Private key only — the public key cannot read call costs. Saved on the secure server only.</div>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <button class="btn primary small" type="button" id="vapiSave">Save Vapi key</button>
-          <button class="btn danger small" type="button" id="vapiDelete" hidden>Delete Vapi key</button>
-          <span class="cell-sub" id="vapiNote" role="status"></span>
-        </div>
-      </div>
     </div>
 
     <div class="mode-line"><span class="mode-dot" id="assistModeDot"></span><span id="assistModeText">Checking setup&hellip;</span></div>
@@ -1760,6 +1734,9 @@ var PATIENTS = {};
 /* A patient's practitioner (most recent appointment's physio), shared
    with the Patients page filter — PATIENTS[].physio itself is "—". */
 var CONTACT_PHYSIO = {};
+/* Task events grouped by task id (built in applyLiveData) for the
+   task-detail History section. */
+var TASK_EVENTS_BY_ID = {};
 /* SLA rules for the "Currently with" flag (task_sla_rules, read in
    applyLiveData). Null until the fetch succeeds — the flag hides when
    the rules cannot be read, never faked. */
@@ -1866,6 +1843,23 @@ function taskDetailRows(t, patientName){
   else if (doneNow) rows += kvRow("Outcome by", "—");
   rows += kvRow("Patient", escHtml(patientName));
   rows += kvRow("Linked appointment", escHtml(t.apptLabel || "No appointment linked"));
+  /* History — task_events as recorded in Supabase, newest first.
+     Created / Updated / Note only: no handoff event type exists in the
+     data, so nothing here claims a journey or a current holder. */
+  var evs = (typeof TASK_EVENTS_BY_ID !== "undefined" && TASK_EVENTS_BY_ID[String(t.id)]) ? TASK_EVENTS_BY_ID[String(t.id)] : [];
+  rows += '<div style="margin-top:14px"><div style="font-weight:800;font-size:13px;margin-bottom:6px">History</div>';
+  if (!evs.length){
+    rows += '<div class="empty-note">No history recorded</div>';
+  } else {
+    rows += evs.map(function(ev){
+      var label = ev.type ? (String(ev.type).charAt(0).toUpperCase() + String(ev.type).slice(1)) : "Event";
+      var line = escHtml(label) + (ev.when ? " · " + escHtml(ev.when) : "");
+      if (ev.from && ev.to) line += " · " + escHtml(ev.from) + " → " + escHtml(ev.to);
+      if (ev.details) line += '<div style="color:var(--muted);font-weight:400">' + escHtml(ev.details) + '</div>';
+      return '<div style="padding:6px 0;border-bottom:1px solid var(--line);font-size:13px;font-weight:700">' + line + '</div>';
+    }).join("");
+  }
+  rows += '</div>';
   return rows;
 }
 function openTaskDetail(patientId, taskIdx){
@@ -3974,7 +3968,7 @@ function renderAiCosts(){
   var st = AI_COSTS.status, d = AI_COSTS.data;
   var bothUnconf = !!(st && !st.retell_configured && !st.vapi_configured);
   /* Per-agent cells — an agent whose provider key is missing shows an
-     honest "Add key in Settings", never a fake zero. */
+     honest "Add keys in Supabase", never a fake zero. */
   var cells = [
     { v: "aiInCost", l: "aiInCostLab", key: "in", need: "retell" },
     { v: "aiOutCost", l: "aiOutCostLab", key: "out", need: "retell" },
@@ -3985,7 +3979,7 @@ function renderAiCosts(){
     if(!vel) return;
     if(!st) return; /* status unknown — leave the "No data yet" placeholder */
     if(!st[c.need + "_configured"]){
-      vel.textContent = "Add key in Settings";
+      vel.textContent = "Add keys in Supabase";
       if(lel) lel.textContent = "Cost";
       return;
     }
@@ -4009,8 +4003,8 @@ function renderAiCosts(){
     var tot = (d && d.totals) || { minutes: 0, cost: 0, calls: 0 };
     if(bothUnconf){
       setText("aiTotalCost", "No data yet"); setText("aiTotalMinutes", "No data yet");
-      setText("aiCostSub", "Add the Retell/Vapi key in Settings");
-      setText("aiMinutesSub", "Add the Retell/Vapi key in Settings");
+      setText("aiCostSub", "Add the Retell/Vapi keys in Supabase");
+      setText("aiMinutesSub", "Add the Retell/Vapi keys in Supabase");
     } else if(AI_COSTS.loadError || !d){
       setText("aiTotalCost", "Couldn't load"); setText("aiTotalMinutes", "Couldn't load");
       setText("aiCostSub", "Retell/Vapi billing — try again");
@@ -4025,36 +4019,21 @@ function renderAiCosts(){
   /* Overview panel — combined total only, never the per-agent breakdown. */
   var ov = document.getElementById("ovAiCostTotal");
   if(ov && st){
-    if(bothUnconf){ ov.textContent = "AI call costs — add the Retell/Vapi key in Settings to see totals."; }
-    else if(AI_COSTS.loadError || !d){ ov.textContent = "AI call costs — couldn't load. Check the keys in Settings."; }
+    if(bothUnconf){ ov.textContent = "AI call costs — add the Retell/Vapi keys in Supabase to see totals."; }
+    else if(AI_COSTS.loadError || !d){ ov.textContent = "AI call costs — couldn't load. Check the keys in Supabase."; }
     else {
       var t2 = d.totals || { minutes: 0, cost: 0, calls: 0 };
       ov.textContent = "AI call costs · " + fmtMins(t2.minutes) + " · " + fmtMoney(t2.cost) + " · " + (t2.calls || 0) + " calls · " + rangeText() + aiCostCoverageSuffix();
     }
   }
 }
-function aiCostApplyStatus(){
-  var st = AI_COSTS.status || {};
-  var r = !!st.retell_configured, v = !!st.vapi_configured;
-  var label = (r && v) ? "Call-cost keys configured: Retell · Vapi"
-    : r ? "Call-cost keys: Retell configured · Vapi not configured"
-    : v ? "Call-cost keys: Vapi configured · Retell not configured"
-    : "Call-cost keys not configured";
-  setText("costCfgStatus", label);
-  var dot = document.getElementById("costCfgDot"); if(dot) dot.classList.toggle("on", r || v);
-  var rd = document.getElementById("retellDelete");
-  if(rd){ rd.hidden = !r; rd.textContent = "Delete Retell key"; rd.classList.remove("confirm"); rd.disabled = false; }
-  var vd = document.getElementById("vapiDelete");
-  if(vd){ vd.hidden = !v; vd.textContent = "Delete Vapi key"; vd.classList.remove("confirm"); vd.disabled = false; }
-}
 function fetchAiCostStatus(){
   return aiCostsFnPost({ action: "status" })
     .then(function(res){
       AI_COSTS.status = res.data || {};
-      aiCostApplyStatus();
       renderAiCosts();
     })
-    .catch(function(){ AI_COSTS.status = {}; aiCostApplyStatus(); renderAiCosts(); });
+    .catch(function(){ AI_COSTS.status = {}; renderAiCosts(); });
 }
 function fetchAiCosts(force){
   if(AI_COSTS.fetching) return;
@@ -4268,66 +4247,6 @@ assistDeleteBtn.addEventListener("click", function(){
     });
 });
 
-/* Call-cost keys — same pattern as the AI provider key: sent ONCE to the
-   ai-costs server function, never kept in this browser, never read back. */
-function aiCostSave(provider, keyElId, noteId, btnId){
-  var keyEl = document.getElementById(keyElId), note = document.getElementById(noteId), btn = document.getElementById(btnId);
-  var key = keyEl.value.trim();
-  if(!key){ note.textContent = "Paste the key first."; return; }
-  btn.disabled = true; note.textContent = "Saving…";
-  aiCostsFnPost({ action: provider === "retell" ? "save_retell_key" : "save_vapi_key", key: key })
-    .then(function(res){
-      var data = res.data;
-      if(res.ok && !data.error){
-        keyEl.value = "";
-        note.textContent = "Key saved.";
-        AI_COSTS.status = null; AI_COSTS.data = null; AI_COSTS.lastFrom = null; AI_COSTS.lastTo = null;
-        fetchAiCostStatus().then(function(){ fetchAiCosts(true); });
-      } else {
-        note.textContent = data.error || data.message || "Could not save the key — please try again.";
-      }
-    })
-    .catch(function(){ note.textContent = "Couldn't reach the server — please try again."; })
-    .then(function(){ btn.disabled = false; });
-}
-document.getElementById("retellSave").addEventListener("click", function(){ aiCostSave("retell", "retellKey", "retellNote", "retellSave"); });
-document.getElementById("vapiSave").addEventListener("click", function(){ aiCostSave("vapi", "vapiKey", "vapiNote", "vapiSave"); });
-/* Two-tap confirm deletes, same pattern as the AI key delete. */
-function aiCostDeleteWire(provider, btnId, noteId){
-  var btn = document.getElementById(btnId), note = document.getElementById(noteId);
-  var armed = false, timer = null;
-  var label = provider === "retell" ? "Delete Retell key" : "Delete Vapi key";
-  btn.addEventListener("click", function(){
-    if(!armed){
-      armed = true;
-      btn.textContent = "Tap again to confirm delete";
-      btn.classList.add("confirm");
-      note.textContent = "";
-      timer = setTimeout(function(){ armed = false; btn.textContent = label; btn.classList.remove("confirm"); }, 5000);
-      return;
-    }
-    if(timer){ clearTimeout(timer); timer = null; }
-    armed = false;
-    btn.textContent = label;
-    btn.classList.remove("confirm");
-    btn.disabled = true; note.textContent = "Deleting…";
-    aiCostsFnPost({ action: provider === "retell" ? "delete_retell_key" : "delete_vapi_key" })
-      .then(function(res){
-        var data = res.data;
-        if(res.ok && !data.error){
-          note.textContent = "Key deleted.";
-          AI_COSTS.status = null; AI_COSTS.data = null; AI_COSTS.lastFrom = null; AI_COSTS.lastTo = null;
-          fetchAiCostStatus().then(function(){ fetchAiCosts(true); });
-        } else {
-          note.textContent = data.error || data.message || "Could not delete the key — please try again.";
-          btn.disabled = false;
-        }
-      })
-      .catch(function(){ note.textContent = "Couldn't reach the server — please try again."; btn.disabled = false; });
-  });
-}
-aiCostDeleteWire("retell", "retellDelete", "retellNote");
-aiCostDeleteWire("vapi", "vapiDelete", "vapiNote");
 
 renderAdmin();
 applyDateFilter();
@@ -4769,6 +4688,10 @@ function fetchAll(){
     gated(["admin-today","overview","owner-overview","team","complaints"], function(){ return listAll("tasks",TASK_COLS,"created_at",false).then(function(d){ lists.tasks = d; }); }, function(d){ lists.tasks = d; }),
     gated(["appointments","overview","owner-overview","admin-today","unprocessed","patients","cancellations","team","performance","progress"], function(){ return listAll("appointments",APPT_COLS,"starts_at",false).then(function(d){ lists.appts = d; }); }, function(d){ lists.appts = d; }),
     gated(["enquiries","ai","overview","patients"], function(){ return listAll("interactions","id,contact_id,provider,channel,direction,outcome,summary,created_at","created_at",false).then(function(d){ lists.interactions = d; }); }, function(d){ lists.interactions = d; }),
+    /* Supabase call records (durations) for the one aggregate line on the
+       AI Agents page. Cost is NULL on all rows, so this line is minutes
+       only and never a second cost source. */
+    gated(["ai"], function(){ return listAll("calls","id,duration_seconds,interaction_id,provider_call_id","created_at",false).then(function(d){ lists.calls = d; }).catch(function(){ lists.calls = []; }); }, function(d){ lists.calls = d; }),
     gated(["patients","enquiries","overview","owner-overview"], function(){ return listAll("referrals","id,contact_id,referred_by,detail,status,created_at","created_at",false).then(function(d){ lists.referrals = d; }); }, function(d){ lists.referrals = d; }),
     gated(["performance","progress","overview","owner-overview"], function(){ return listQ("dashboard_monthly_performance","report_month,attended,no_shows,cancellations","report_month",true,12).then(function(d){ lists.monthly = d; }); }, function(d){ lists.monthly = d; }),
     gated(["patients","discharged","cancellations"], function(){ return listAll("sequence_instances","id,contact_id,sequence_key,status,current_stage,started_at,created_at","created_at",false).then(function(d){ lists.sequences = d; }); }, function(d){ lists.sequences = d; }),
@@ -4798,6 +4721,11 @@ function fetchAll(){
        authenticated (GRANT SELECT ON public.task_sla_rules TO
        authenticated) — report it, do not invent the flag. */
     gated(["admin-today","my-tasks","patients"], function(){ return listAll("task_sla_rules","task_type,owner_label,escalation_minutes,response_minutes",null,true).then(function(d){ lists.slaRules = d; }).catch(function(){ lists.slaRules = null; }); }, function(d){ lists.slaRules = null; }),
+    /* Task events for the task-detail History section (created / updated /
+       note as recorded — no handoff events exist). 1,752 rows; listAll
+       pages at 1,000. Failure-safe: a failed read leaves an empty list
+       and the detail shows "No history recorded". */
+    gated(["admin-today","my-tasks","patients"], function(){ return listAll("task_events","id,task_id,event_type,occurred_at,from_status,to_status,details,actor_user_id","occurred_at",false).then(function(d){ lists.taskEvents = d; }).catch(function(){ lists.taskEvents = []; }); }, function(d){ lists.taskEvents = d; }),
     gated(["appointments","overview","owner-overview","discharged","payments"], function(){ return fetchViewRows("vw_journey_metrics_plus","*",null).then(function(d){ lists.journey = d; }); }, function(d){ lists.journey = null; }),
     /* My Work — the two scoped jobs. fetchMyAppts filters by the
        physio's own practitioner_id; fetchMyWork derives the patient
@@ -5130,6 +5058,20 @@ function applyLiveData(data){
     if (!contactPhysioDate[cid] || d > contactPhysioDate[cid]){ contactPhysioDate[cid] = d; contactPhysio[cid] = nm; }
   });
   CONTACT_PHYSIO = contactPhysio;
+  /* Task events, grouped by task for the task-detail History section.
+     Times are pre-formatted here (fmtWhen is IIFE-local; the detail
+     renderer in script 2 cannot call it). Handoff event types are all
+     zero in Supabase, so this is a plain record of what happened —
+     never a journey flag. */
+  TASK_EVENTS_BY_ID = {};
+  (lists.taskEvents || []).forEach(function(ev){
+    if (!ev || ev.task_id == null) return;
+    var k = String(ev.task_id);
+    (TASK_EVENTS_BY_ID[k] = TASK_EVENTS_BY_ID[k] || []).push({ type: ev.event_type || "", when: ev.occurred_at ? fmtWhen(ev.occurred_at) : "", ts: ev.occurred_at || "", from: ev.from_status || "", to: ev.to_status || "", details: ev.details || "" });
+  });
+  Object.keys(TASK_EVENTS_BY_ID).forEach(function(k){
+    TASK_EVENTS_BY_ID[k].sort(function(a, b){ return a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : 0; });
+  });
 
   /* My Work — the signed-in physio's own data only. The lists above
      are already scoped by the fetches (practitioner_id filter, the
@@ -5869,6 +5811,20 @@ function updateLiveTotals(counts, lists){
   setText("ooOverdue", fmtNum(overdue));
   setText("ooDueToday", fmtNum(dueToday));
   setText("ovDueToday", fmtNum(dueToday));
+  /* Waiting on physios — open tasks linked to a physio via the patient's
+     most recent appointment (CONTACT_PHYSIO, same derivation as the Team
+     page). No handoff is implied: tasks carry no assignee. */
+  var waitingPhysio = ADMIN_ACTIONS.filter(function(a){ return !a.done && a.pid && CONTACT_PHYSIO && CONTACT_PHYSIO[a.pid]; }).length;
+  setText("ooWaiting", fmtNum(waitingPhysio));
+  setText("ooWaitingSub", "Open tasks linked to a physio");
+  setText("ovWaiting", fmtNum(waitingPhysio));
+  setText("ovWaitingSub", "Open tasks linked to a physio");
+  /* Supabase call records — one aggregate line on the AI Agents page.
+     Durations only: cost is NULL on every calls row, so this never
+     competes with the API cost/minutes figures. */
+  var callsWithDur = (lists.calls || []).filter(function(c){ return c.duration_seconds != null; });
+  var callsMins = Math.floor(callsWithDur.reduce(function(s, c){ return s + (Number(c.duration_seconds) || 0); }, 0) / 60);
+  setText("aiCallsLine", callsWithDur.length ? ("Supabase call records · " + fmtNum(callsWithDur.length) + " calls · " + fmtNum(callsMins) + " min") : "Supabase call records · No call records yet");
   setText("ovCompTasks", fmtNum(counts.tasksComplaint + counts.tasksRefund));
   setText("ovCompSub", fmtNum(counts.tasksComplaint) + " complaints / " + fmtNum(counts.tasksRefund) + " refunds \u00b7 all time");
   setText("ovNewPatients", fmtNum(newThisMonth));
