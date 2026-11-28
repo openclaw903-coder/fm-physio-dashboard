@@ -379,6 +379,8 @@ h1,h2,h3{font-family:"Fraunces",Georgia,serif;font-weight:600;line-height:1.15;m
 .nb-track{display:block;height:10px;border-radius:99px;background:var(--surface-2);overflow:hidden}
 .nb-fill{display:block;height:100%;border-radius:99px}
 .nb-bucket .nb-num{font-weight:800;text-align:right}
+.nb-bucket.clickable{cursor:pointer;border-radius:8px}
+.nb-bucket.clickable:hover{background:var(--surface-2)}
 .nb-t-grid{grid-template-columns:1.15fr .9fr 1fr .55fr .75fr 1.6fr .85fr}
 @media (max-width:860px){.nb-t-grid{grid-template-columns:1fr !important}.nb-bucket{grid-template-columns:118px 1fr 26px}}
 
@@ -1029,8 +1031,8 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
           <h3 style="font-size:19px;margin:0 0 6px">Enquiries by source</h3>
           <p style="font-size:13.5px;color:var(--muted);margin:0 0 12px" id="enqTableNote">New patients</p>
           <div class="list-card" style="margin-bottom:14px">
-            <div class="list-head" style="grid-template-columns:1.6fr .7fr .7fr .8fr 24px">
-              <span>Source</span><span>Enquiries</span><span>Booked</span><span style="text-align:right">Conversion</span><span></span>
+            <div class="list-head" style="grid-template-columns:1.6fr .6fr .6fr .6fr .8fr 24px">
+              <span>Source</span><span>Enquiries</span><span>Booked</span><span>Not booked</span><span style="text-align:right">Conversion</span><span></span>
             </div>
             <div id="enqSources"></div>
           </div>
@@ -2452,12 +2454,13 @@ function renderStatusPills(containerId, defs, counts, activeKey, onPick){
    reset to "all" too. */
 var adminTaskFilter = "all";
 var enqOutcomeFilter = "all";
+var enqBucketFilter = "all";
 var cxTypeFilter = "all";
 var cxPhysioFilter = "all";
 var crStatusFilter = "all";
 function resetStatusFilters(){
   try {
-    adminTaskFilter = "all"; enqOutcomeFilter = "all";
+    adminTaskFilter = "all"; enqOutcomeFilter = "all"; enqBucketFilter = "all";
     cxTypeFilter = "all"; cxPhysioFilter = "all"; crStatusFilter = "all";
     if (typeof myTaskFilter !== "undefined") myTaskFilter = "all";
     if (typeof myApptFilter !== "undefined") myApptFilter = "all";
@@ -2753,16 +2756,26 @@ function renderNotBooked(tabbed){
   else if (enqOutcomeFilter !== "all") nb = nb.filter(function(e){ return (e.outcome || "—") === enqOutcomeFilter; });
   var counts = {ai:0, human:0, lost:0, dnc:0};
   nb.forEach(function(e){ counts[enqBucket(e)]++; });
+  /* Bucket filter — applied AFTER the counts above, so the bucket
+     numbers stay live with tab/range/outcome (like the outcome chips'
+     counts come from the pre-filter set). Clicking a bucket filters
+     the table + lost reasons below; clicking it again restores All. */
+  if (enqBucketFilter !== "all") nb = nb.filter(function(e){ return enqBucket(e) === enqBucketFilter; });
   var maxB = Math.max(counts.ai, counts.human, counts.lost, counts.dnc, 1);
   var bucketsHtml = NB_BUCKETS.map(function(b){
     var w = Math.round(counts[b.key]/maxB*100);
-    return '<div class="nb-bucket"><span class="nb-lab">'+b.label+'</span><span class="nb-track"><i class="nb-fill" style="width:'+w+'%;background:'+b.color+'"></i></span><span class="nb-num num">'+counts[b.key]+'</span></div>';
+    var sel = (enqBucketFilter === b.key);
+    return '<div class="nb-bucket clickable" role="button" tabindex="0" title="Show only '+b.label+'" data-bucket="'+b.key+'"'+(sel?' style="background:var(--teal-soft)"':'')+'><span class="nb-lab">'+b.label+'</span><span class="nb-track"><i class="nb-fill" style="width:'+w+'%;background:'+b.color+'"></i></span><span class="nb-num num">'+counts[b.key]+'</span></div>';
   }).join("");
   var tableHtml;
   if(!nb.length){
-    tableHtml = enqOutcomeFilter === "all"
-      ? '<div class="empty-note">Everyone in this range booked — nothing waiting.</div>'
-      : '<div class="empty-note">No enquiries with this outcome in this range.</div>';
+    var bDef = null;
+    if (enqBucketFilter !== "all") NB_BUCKETS.forEach(function(b){ if (b.key === enqBucketFilter) bDef = b; });
+    tableHtml = bDef
+      ? '<div class="empty-note">No ' + bDef.label + ' enquiries in this range.</div>'
+      : (enqOutcomeFilter === "all"
+        ? '<div class="empty-note">Everyone in this range booked — nothing waiting.</div>'
+        : '<div class="empty-note">No enquiries with this outcome in this range.</div>');
   } else {
     tableHtml = '<div class="list-head nb-t-grid"><span>Name</span><span>Source</span><span>Enquired about</span><span>Attempts</span><span>Last contact</span><span>Reason</span><span>Next step</span></div>'
       + nb.slice(0, nbShowN).map(function(e){
@@ -2798,6 +2811,17 @@ function renderNotBooked(tabbed){
   bindPatientClicks(wrap);
   var nmb = document.getElementById("nbMore");
   if(nmb) nmb.addEventListener("click", function(){ nbShowN += 60; renderEnquiries(); });
+  /* Bucket bars are clickable filters — same row toggles back to All. */
+  wrap.querySelectorAll("[data-bucket]").forEach(function(el){
+    el.addEventListener("click", function(){
+      var k = el.getAttribute("data-bucket");
+      enqBucketFilter = (enqBucketFilter === k) ? "all" : k;
+      renderEnquiries();
+    });
+    el.addEventListener("keydown", function(e){
+      if (e.key === "Enter"){ e.preventDefault(); var k2 = el.getAttribute("data-bucket"); enqBucketFilter = (enqBucketFilter === k2) ? "all" : k2; renderEnquiries(); }
+    });
+  });
 }
 var nbShowN = 60;
 function renderEnquiries(){
@@ -2834,16 +2858,18 @@ function renderEnquiries(){
     var rows = enqFiltered(s.key);
     var bk = rows.filter(function(e){ return e.booked; }).length;
     var conv = rows.length ? Math.round(bk/rows.length*100) : null;
-    return '<div class="list-row clickable enq-src" data-src="'+s.key+'" style="grid-template-columns:1.6fr .7fr .7fr .8fr 24px">'
+    return '<div class="list-row clickable enq-src" data-src="'+s.key+'" style="grid-template-columns:1.6fr .6fr .6fr .6fr .8fr 24px">'
       + '<div><div class="cell-main">'+s.name+'</div></div>'
       + '<div class="num" style="font-weight:800">'+rows.length+'</div>'
       + '<div class="num">'+bk+'</div>'
+      + '<div class="num">'+(rows.length-bk)+'</div>'
       + '<div class="num'+(conv!==null && conv<25 ? " pct-low" : "")+'" style="text-align:right;font-weight:800">'+(conv===null ? "—" : conv+"%")+'</div>'
       + CHEV + '</div>';
   }).join("");
   html += ENQ_NODATA.map(function(s){
-    return '<div class="list-row clickable enq-src" data-src="'+s.key+'" style="grid-template-columns:1.6fr .7fr .7fr .8fr 24px">'
+    return '<div class="list-row clickable enq-src" data-src="'+s.key+'" style="grid-template-columns:1.6fr .6fr .6fr .6fr .8fr 24px">'
       + '<div><div class="cell-main">'+s.name+'</div><div class="cell-sub">'+s.note+'</div></div>'
+      + '<div class="num" style="color:var(--muted)">—</div>'
       + '<div class="num" style="color:var(--muted)">—</div>'
       + '<div class="num" style="color:var(--muted)">—</div>'
       + '<div class="num" style="text-align:right;color:var(--muted)">—</div>'
@@ -2858,10 +2884,11 @@ function renderEnquiries(){
     var valid = refs.filter(function(r){ return r.status==="valid"; }).length;
     var conv = refs.length ? Math.round(valid/refs.length*100) : null;
     var sub = refs.length ? (toCheck + " to check · in Supabase") : "In Supabase · none yet";
-    html += '<div class="list-row clickable enq-src" data-src="referrals" style="grid-template-columns:1.6fr .7fr .7fr .8fr 24px">'
+    html += '<div class="list-row clickable enq-src" data-src="referrals" style="grid-template-columns:1.6fr .6fr .6fr .6fr .8fr 24px">'
       + '<div><div class="cell-main">Referrals</div><div class="cell-sub">'+sub+'</div></div>'
       + '<div class="num" style="font-weight:800">'+refs.length+'</div>'
       + '<div class="num">'+valid+'</div>'
+      + '<div class="num">'+(refs.length-valid)+'</div>'
       + '<div class="num" style="text-align:right;font-weight:800">'+(conv===null ? "—" : conv+"%")+'</div>'
       + CHEV + '</div>';
   })();
@@ -2896,6 +2923,7 @@ document.querySelectorAll("#enqTabs .pill").forEach(function(btn){
     btn.classList.add("active");
     enqTab = btn.getAttribute("data-enqtab");
     enqOutcomeFilter = "all";
+    enqBucketFilter = "all";
     renderEnquiries();
   });
 });
