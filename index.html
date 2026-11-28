@@ -190,6 +190,12 @@ h1,h2,h3{font-family:"Fraunces",Georgia,serif;font-weight:600;line-height:1.15;m
 .task-row.clickable:hover{background:var(--surface-3)}
 .action-row.clickable{cursor:pointer;border-radius:6px}
 .action-row.clickable:hover{background:var(--surface-3)}
+.kpi.clickable{cursor:pointer}
+.kpi.selected{outline:2px solid var(--teal-deep);outline-offset:2px}
+.journey .j-step.clickable{cursor:pointer}
+.journey .j-step.selected{outline:2px solid var(--teal-deep);outline-offset:2px}
+#page-admin-today.detail-open > *{display:none}
+#page-admin-today.detail-open > #adminTaskDetail{display:block}
 .task-body{flex:1;min-width:0}
 .task-title{font-weight:700;font-size:14.5px}
 .task-title.is-done{color:var(--muted);text-decoration:line-through}
@@ -891,8 +897,9 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
           </div>
 
           <div class="panel">
-            <div class="panel-head"><h3>Patient alerts</h3><button class="link-btn" data-goto="complaints">Complaints &amp; Refunds →</button></div>
+            <div class="panel-head"><h3>Patient alerts</h3></div>
             <div class="rows">
+              <div class="row-item" data-goto="complaints"><div class="row-main"><div class="row-title">Complaints &amp; refunds</div><div class="row-sub" id="ovCompSub">Complaints / refunds · all time</div></div><div class="row-side"><div class="t num" id="ovCompTasks">—</div><div class="row-sub">Tasks</div></div></div>
               <div class="row-item" data-goto="patients"><div class="row-main"><div class="row-title">Referrals to check</div><div class="row-sub" id="ovRefSub">From Supabase</div></div><div class="row-side"><div class="t num" id="ovRefCount">0</div></div></div>
               <div class="row-item" data-goto="dnc"><div class="row-main"><div class="row-title">Do Not Call</div><div class="row-sub">Contacts flagged DNC</div></div><div class="row-side"><div class="t num" id="ovDnc">—</div></div></div>
             </div>
@@ -1366,6 +1373,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
 
       <!-- ======== ADMIN TODAY ======== -->
       <section class="page" id="page-admin-today">
+        <div id="adminTaskDetail" hidden></div>
         <div class="page-head">
           <div><h2>Admin Today</h2><p id="adminSubtitle">Today&rsquo;s admin work · All dates</p></div>
         </div>
@@ -1376,6 +1384,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
 
         <div class="panel urgent-panel" style="margin-bottom:22px">
           <div class="panel-head"><h3>Urgent — needs action first</h3><span class="tag red">Separate list</span></div>
+          <div class="toolbar"><div class="pills" id="urgentPills"></div><span class="spacer"></span><select class="select" id="urgentPhysioFilter" aria-label="Filter urgent tasks by physiotherapist"><option value="all">All physios</option><option>Ethan Redmond</option><option>Aadyaa Madhu</option><option>Lucy Byott</option><option>Arek Rogozinski</option><option>Stuart Goldfinch</option><option>Kate Bennett</option><option value="Not assigned">Not assigned</option></select></div>
           <div class="action-head" id="urgentHead"><span></span><span>Status</span><span>Patient</span><span>Action</span><span>Why</span><span>Due</span><span>Outcome</span></div>
           <div id="urgentList"></div>
         </div>
@@ -1609,6 +1618,17 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
 
 <script>
 function escHtml(s){ return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+/* Shared text setter — the live-data script has its own local copy; this
+   global one is what the page renderers call. renderDischarged uses it,
+   and without a global copy it threw ReferenceError, aborting
+   applyDateFilter before renderPayments ever ran (28 Nov live check:
+   Discharged empty + Payments "No data yet" from one missing global). */
+function setText(id, v){ var el = document.getElementById(id); if (el) el.textContent = v; }
+/* Global number formatter — same IIFE-scope trap as setText: fmtNum lives
+   only inside the live-data script, but renderPayments (page renderer)
+   calls it. Without this global copy, the Payments cards threw
+   ReferenceError the moment the setText fix let renderPayments run. */
+function fmtNum(n){ return (n == null ? 0 : n).toLocaleString("en-GB"); }
 /* The 19 gated pages — keys match user_page_access.page_key exactly.
    The three My Work pages come first, so a physio who only has those
    lands on My Appointments, and the owner sees them first in Users. */
@@ -1719,6 +1739,10 @@ var PATIENTS = {};
 /* A patient's practitioner (most recent appointment's physio), shared
    with the Patients page filter — PATIENTS[].physio itself is "—". */
 var CONTACT_PHYSIO = {};
+/* SLA rules for the "Currently with" flag (task_sla_rules, read in
+   applyLiveData). Null until the fetch succeeds — the flag hides when
+   the rules cannot be read, never faked. */
+var SLA_RULES = null;
 
 var APPOINTMENTS = [];
 
@@ -1742,8 +1766,12 @@ function showPage(id, restoreY){
   closeSidebar();
   window.scrollTo({top:(typeof restoreY==="number" ? restoreY : 0)});
 }
-document.querySelectorAll(".nav-item").forEach(function(b){ b.addEventListener("click", function(){ var pg = b.getAttribute("data-page"); try { if (pg === "my-appointments") closeMyApptDetail(); if (pg === "my-tasks") closeMyTaskDetail(); } catch(e){} showPage(pg); resetStatusFilters(); rerenderPageFilters(pg); }); });
+document.querySelectorAll(".nav-item").forEach(function(b){ b.addEventListener("click", function(){ var pg = b.getAttribute("data-page"); try { if (pg === "my-appointments") closeMyApptDetail(); if (pg === "my-tasks") closeMyTaskDetail(); if (pg === "admin-today") closeAdminTaskDetail(); } catch(e){} showPage(pg); resetStatusFilters(); rerenderPageFilters(pg); }); });
 document.querySelectorAll("[data-goto]").forEach(function(b){ b.addEventListener("click", function(){ var pg = b.getAttribute("data-goto"); showPage(pg); resetStatusFilters(); rerenderPageFilters(pg); }); });
+/* Urgent-list physio dropdown (Admin Today) — bound once; renderAdmin
+   reads its value each render, and resetStatusFilters restores "all". */
+var _urgPhysioSel = document.getElementById("urgentPhysioFilter");
+if (_urgPhysioSel) _urgPhysioSel.addEventListener("change", function(){ renderAdmin(); });
 
 var sidebar=document.getElementById("sidebar"), scrim=document.getElementById("scrim");
 function closeSidebar(){ sidebar.classList.remove("open"); scrim.classList.remove("show"); }
@@ -1792,6 +1820,8 @@ function taskDetailRows(t, patientName){
   rows += kvRow("Title", escHtml(t.t || t.title || ""));
   rows += kvRow("Type", escHtml(t.typeLabel || t.type));
   rows += kvRow("Status", escHtml(t.st));
+  var withText = taskWithText(t);
+  if (withText) rows += kvRow("Currently with", escHtml(withText));
   rows += kvRow("Opened", escHtml(t.createdLabel || "—"));
   rows += kvRow("Priority", escHtml(t.prioLabel || t.p));
   rows += kvRow("Reason", escHtml(t.reason || "—"));
@@ -1799,9 +1829,20 @@ function taskDetailRows(t, patientName){
   rows += kvRow("Due", escHtml(t.due || "—"));
   if (t.slaLabel) rows += kvRow("SLA due", escHtml(t.slaLabel));
   if (t.completedLabel) rows += kvRow("Completed", escHtml(t.completedLabel));
-  rows += kvRow("Outcome", escHtml(t.outcome || t.savedOutcome || "—"));
+  var lateText = taskLateText(t);
+  if (lateText) rows += kvRow("Lateness", escHtml(lateText));
+  /* Outcome: for a completed task with nothing recorded, say so
+     honestly ("No outcome recorded") instead of a bare dash — task
+     2588 is the live case (completed with a null outcome). For an open
+     task the dash stands: nothing has been recorded yet. Outcome time
+     falls back to the completion time when no outcome_at was stored. */
+  var doneNow = taskIsDone(t);
+  var outVal = t.outcome || t.savedOutcome || "";
+  rows += kvRow("Outcome", escHtml(outVal || (doneNow ? "No outcome recorded" : "—")));
   if (t.outcomeAt) rows += kvRow("Outcome time", escHtml(t.outcomeAt));
+  else if (doneNow && t.completedLabel) rows += kvRow("Outcome time", escHtml(t.completedLabel));
   if (t.outcomeBy) rows += kvRow("Outcome by", escHtml(t.outcomeBy));
+  else if (doneNow) rows += kvRow("Outcome by", "—");
   rows += kvRow("Patient", escHtml(patientName));
   rows += kvRow("Linked appointment", escHtml(t.apptLabel || "No appointment linked"));
   return rows;
@@ -2333,12 +2374,16 @@ function actionRowHTML(a, kind, idx){
   else name = '<span class="a-patient">'+escHtml(a.patient)+'</span>';
   var opts = '<option value="">Choose outcome</option>' + OUTCOME_OPTIONS.map(function(o){ return '<option'+(a.outcome===o?" selected":"")+'>'+o+'</option>'; }).join("");
   var canComplete = !!(a.outcome || a.custom.trim());
-  return '<div class="action-row'+(a.done?" is-done":"")+'" data-action-kind="'+kind+'" data-action-idx="'+idx+'">'
+  /* Admin Today rows (kind admin/extra) open the shared task detail on
+     click; My Tasks rows (kind my) already have their own binder, so
+     they get no data-admin-task here. */
+  var detailAttr = (kind === "admin" || kind === "extra") && a.id != null ? ' data-admin-task="' + a.id + '"' : "";
+  return '<div class="action-row'+(a.done?" is-done":"")+'" data-action-kind="'+kind+'" data-action-idx="'+idx+'"'+detailAttr+'>'
     + '<input type="checkbox" class="act-check" aria-label="Mark complete" '+(a.done?"checked disabled":(canComplete?"":" disabled"))+' />'
     + '<div>'+badge+'</div>'
     + '<div>'+name+'</div>'
     + '<div class="a-action">'+escHtml(a.action)+'</div>'
-    + '<div class="a-why">'+escHtml(a.why)+'</div>'
+    + '<div class="a-why">'+escHtml(a.why)+withFlagHTML(a)+'</div>'
     + '<div class="a-due">'+a.dueLabel+'</div>'
     + '<div class="a-outcome"><select class="act-outcome" aria-label="Outcome">'+opts+'</select>'
     + '<input type="text" class="act-custom" placeholder="Or type an outcome…" value="'+a.custom.replace(/"/g,"&quot;")+'" aria-label="Type your own outcome" /></div>'
@@ -2463,28 +2508,33 @@ function adminStats(){
     cancelled: CANCELLED_TASKS.filter(function(t){ return inRange(t.doneISO); }).length,
     carried: carriedCount,
     dueToday: open.filter(function(a){ return a.dueISO === TODAY_ISO; }).length,
-    chosen: inR.filter(function(a){ return !a.done && (a.outcome || a.custom.trim()); }).length
+    chosen: inR.filter(function(a){ return !a.done && (a.outcome || a.custom.trim()); }).length,
+    /* Week + yesterday bounds for the KPI/strip filter (adminKpiMatch
+       uses the same definitions as the counts above). */
+    wkStart: wkStart, wkEnd: wkEnd, yesterdayISO: yesterdayISO
   };
 }
 function adminKpisHTML(s){
   var kpis = [
-    {l:"Completed this week", v:s.completed, sub:"tasks completed"},
-    {l:"Completed on time", v:s.onTime, sub:"at or before due time"},
-    {l:"Late completed", v:s.late, sub:"after due time"},
-    {l:"Not completed", v:s.notCompleted, sub:"of which "+s.overdue+" overdue"},
-    {l:"Cancelled", v:s.cancelled, sub:"tasks cancelled"},
-    {l:"Carried over", v:s.carried, sub:"from yesterday, still open"}
+    {k:"completed-week", l:"Completed this week", v:s.completed, sub:"tasks completed"},
+    {k:"ontime", l:"Completed on time", v:s.onTime, sub:"at or before due time"},
+    {k:"late", l:"Late completed", v:s.late, sub:"after due time"},
+    {k:"notcompleted", l:"Not completed", v:s.notCompleted, sub:"of which "+s.overdue+" overdue"},
+    {k:"cancelled", l:"Cancelled", v:s.cancelled, sub:"tasks cancelled"},
+    {k:"carried", l:"Carried over", v:s.carried, sub:"from yesterday, still open"}
   ];
   return kpis.map(function(k){
-    return '<div class="kpi"><div class="k-label">'+k.l+'</div><div class="k-value num">'+k.v+'</div>'+(k.sub?'<div class="k-sub">'+k.sub+'</div>':"")+'</div>';
+    var sel = (adminKpiFilter === k.k) ? " selected" : "";
+    return '<div class="kpi clickable' + sel + '" data-kpi="' + k.k + '" role="button" tabindex="0" title="Filter tasks"><div class="k-label">'+k.l+'</div><div class="k-value num">'+k.v+'</div>'+(k.sub?'<div class="k-sub">'+k.sub+'</div>':"")+'</div>';
   }).join("");
 }
 function journeyHTML(s){
   var steps = [
-    {l:"Carried over", v:s.carried}, {l:"Due today", v:s.dueToday}, {l:"Outcome chosen", v:s.chosen}, {l:"Completed", v:s.completed}, {l:"Cancelled", v:s.cancelled}
+    {k:"carried", l:"Carried over", v:s.carried}, {k:"duetoday", l:"Due today", v:s.dueToday}, {k:"chosen", l:"Outcome chosen", v:s.chosen}, {k:"completed-week", l:"Completed", v:s.completed}, {k:"cancelled", l:"Cancelled", v:s.cancelled}
   ];
   return steps.map(function(st){
-    return '<div class="j-step"><div class="j-v num">'+st.v+'</div><div class="j-l">'+st.l+'</div></div>';
+    var sel = (adminKpiFilter === st.k) ? " selected" : "";
+    return '<div class="j-step clickable' + sel + '" data-kpi="' + st.k + '" role="button" tabindex="0" title="Filter tasks"><div class="j-v num">'+st.v+'</div><div class="j-l">'+st.l+'</div></div>';
   }).join("");
 }
 var adminShowN = 60;
@@ -2508,6 +2558,143 @@ function countBy(rows, keyFn){
 function filterByStatus(rows, key, keyFn){
   if (key === "all") return (rows || []).slice();
   return (rows || []).filter(function(r){ return keyFn(r) === key; });
+}
+/* "Currently with" — derived from task_sla_rules, NOT from a handoff
+   record: no task is ever assigned to anyone in Supabase
+   (tasks.assigned_to is null on every row; task_events has no assigned /
+   escalated event). The flag names the team the rule for that task type
+   points at. A type with no rule shows no flag — never invented. */
+function slaRuleFor(taskType){
+  if (!SLA_RULES || !taskType) return null;
+  return SLA_RULES[String(taskType)] || null;
+}
+/* Still open AND older than the type's escalation_minutes. "Now" is the
+   viewer's clock; createdAt is the task's created_at from Supabase. */
+function taskIsOpen(t){
+  if (!t) return false;
+  if (t.done === true) return false;
+  if (t.done === false) return true;
+  if (t.st) return t.st === "Open";
+  if (t.status) return t.status === "open";
+  return false; /* no status info — do not show an owner flag */
+}
+function taskEscalated(t){
+  var r = slaRuleFor(t.taskType || t.type);
+  if (!r || !r.esc) return false;
+  if (!taskIsOpen(t)) return false;
+  var created = t.createdAt || "";
+  if (!created) return false;
+  return (Date.now() - new Date(created).getTime()) > r.esc * 60000;
+}
+/* Detail-view text — the honest label: the owner comes from the SLA
+   rule, and no handoff was ever recorded. Open tasks only: a completed
+   or cancelled task has no current owner — its history is shown
+   instead (outcome / by / at / lateness). */
+function taskWithText(t){
+  if (!taskIsOpen(t)) return "";
+  var r = slaRuleFor(t.taskType || t.type);
+  if (!r || !r.owner) return "";
+  return r.owner + " (SLA rule — no handoff recorded)" + (taskEscalated(t) ? " · Escalated" : "");
+}
+/* Row tag — short form; the detail view carries the honest qualifier.
+   Open tasks only (see taskWithText). */
+function withFlagHTML(t){
+  if (!taskIsOpen(t)) return "";
+  var r = slaRuleFor(t.taskType || t.type);
+  if (!r || !r.owner) return "";
+  var h = '<span class="tag">With: ' + escHtml(r.owner) + '</span>';
+  if (taskEscalated(t)) h += ' <span class="tag red">Escalated</span>';
+  return h;
+}
+/* Completed-task history — what happened with a task that is done:
+   outcome + who recorded it + when + how late (completed date vs due
+   date, the same due definition the page uses: due_at's London date,
+   falling back to created_at when there is no due_at). No handoff or
+   reassignment is ever shown: no such record exists in Supabase
+   (assigned_to is null on every task; task_events has no assigned /
+   escalated event). Only for completed (Done) tasks — cancelled tasks
+   have no completion to report. */
+function taskIsDone(t){
+  if (!t) return false;
+  if (t.st) return t.st === "Done";
+  if (t.done === true) return true;
+  if (t.status) return t.status === "completed";
+  return false;
+}
+function taskLateText(t){
+  if (!taskIsDone(t)) return "";
+  var due = (t.dueISO || "").slice(0,10), done = (t.doneISO || "").slice(0,10);
+  if (!due || !done) return "";
+  var days = Math.round((new Date(done + "T12:00:00") - new Date(due + "T12:00:00")) / 86400000);
+  if (days <= 0) return "On time";
+  return days === 1 ? "1 day late" : days + " days late";
+}
+function taskHistoryText(t){
+  if (!taskIsDone(t)) return "";
+  var out = t.outcome || t.savedOutcome || "";
+  var by = t.outcomeBy || "";
+  var when = t.outcomeAt || t.completedLabel || "";
+  var late = taskLateText(t);
+  var parts = [ out ? out : "No outcome recorded" ];
+  if (by) parts.push(by);
+  if (when) parts.push(when);
+  if (late) parts.push(late);
+  return parts.join(" · ");
+}
+/* Which Admin Today bottom-list rows belong to one KPI card / journey
+   step. The counts on the cards come from adminStats; this picks the
+   same rows the count counts (see adminStats for each definition).
+   Carried over counts open tasks created yesterday across ALL tasks,
+   while the list is the in-range subset — under "All dates" they agree
+   exactly; under a narrower range the list is the in-range part. */
+function adminKpiMatch(a, key, ctx){
+  if (!a || key === "all") return true;
+  var inDone = ctx.doneInR.indexOf(a) !== -1;
+  var inCanc = ctx.cancInR.indexOf(a) !== -1;
+  var inOpen = ctx.inR.indexOf(a) !== -1;
+  var isCompleted = inDone || (inOpen && !!a.done);
+  if (key === "completed-week"){
+    if (!isCompleted) return false;
+    if (a.doneISO) return a.doneISO >= ctx.wkStart && a.doneISO <= ctx.wkEnd;
+    return true; /* completed in-session today — today is inside this week */
+  }
+  if (key === "ontime"){
+    if (!isCompleted) return false;
+    if (a.doneISO) return a.doneISO <= a.dueISO;
+    return a.dueISO >= TODAY_ISO;
+  }
+  if (key === "late"){
+    if (!isCompleted) return false;
+    if (a.doneISO) return a.doneISO > a.dueISO;
+    return a.dueISO < TODAY_ISO;
+  }
+  if (key === "notcompleted") return inOpen && !a.done;
+  if (key === "cancelled") return inCanc;
+  if (key === "carried") return inOpen && !a.done && a.createdISO === ctx.yesterdayISO;
+  if (key === "duetoday") return inOpen && !a.done && a.dueISO === TODAY_ISO;
+  if (key === "chosen") return inOpen && !a.done && !!(a.outcome || (a.custom || "").trim());
+  return true;
+}
+/* Urgent-list filters — signal chips from urgentSignals, physio from
+   the same via-patient derivation as the weekly table (most recent
+   appointment); a task whose patient has no practitioner is
+   "Not assigned". The signal keys are the chip keys (urgent / over24h /
+   pastdue) — an array, so the chip counts and the chip filter share
+   the same list. */
+function urgentSignalKeys(t){
+  var sig = urgentSignals(t);
+  var keys = [];
+  if (sig.indexOf("Priority: urgent") !== -1) keys.push("urgent");
+  if (sig.some(function(s){ return s.indexOf("Open ") === 0; })) keys.push("over24h");
+  if (sig.indexOf("Past due") !== -1) keys.push("pastdue");
+  return keys;
+}
+function urgentChipMatch(a, key){
+  if (key === "all") return true;
+  return urgentSignalKeys(a).indexOf(key) !== -1;
+}
+function urgentPhysioOf(a){
+  return a.pid ? (CONTACT_PHYSIO[a.pid] || "Not assigned") : "Not assigned";
 }
 /* Top N values by count (count desc, label asc for a stable tie-break)
    plus the long tail as Other. Used by Enquiries, where the outcome
@@ -2537,16 +2724,25 @@ function renderStatusPills(containerId, defs, counts, activeKey, onPick){
    (the active .pill) plus the patientFilter var; the physio selects
    reset to "all" too. */
 var adminTaskFilter = "all";
+var adminKpiFilter = "all";
+var urgentChipFilter = "all";
 var enqOutcomeFilter = "all";
 var enqBucketFilter = "all";
 var enqSourceFilter = "all";
 var cxTypeFilter = "all";
 var cxPhysioFilter = "all";
 var crStatusFilter = "all";
+/* KPI / journey-strip filter labels, for the bottom-list empty state. */
+var ADMIN_KPI_LABELS = {
+  "completed-week": "completed this week", "ontime": "completed on time", "late": "late completed",
+  "notcompleted": "not completed", "cancelled": "cancelled", "carried": "carried over",
+  "duetoday": "due today", "chosen": "outcome chosen"
+};
 function resetStatusFilters(){
   try {
     adminTaskFilter = "all"; enqOutcomeFilter = "all"; enqBucketFilter = "all"; enqSourceFilter = "all";
     cxTypeFilter = "all"; cxPhysioFilter = "all"; crStatusFilter = "all";
+    adminKpiFilter = "all"; urgentChipFilter = "all";
     if (typeof myTaskFilter !== "undefined") myTaskFilter = "all";
     if (typeof myApptFilter !== "undefined") myApptFilter = "all";
     if (typeof patientFilter !== "undefined") patientFilter = "all";
@@ -2554,7 +2750,7 @@ function resetStatusFilters(){
     if (typeof window.resetUserStatusFilter === "function") window.resetUserStatusFilter();
     document.querySelectorAll("#apptPills .pill").forEach(function(x){ x.classList.toggle("active", x.getAttribute("data-appt") === "all"); });
     document.querySelectorAll("#patientPills .pill").forEach(function(x){ x.classList.toggle("active", x.getAttribute("data-pfilter") === "all"); });
-    ["physioFilter", "patientPhysioFilter", "cxPhysioFilter"].forEach(function(id){
+    ["physioFilter", "patientPhysioFilter", "cxPhysioFilter", "urgentPhysioFilter"].forEach(function(id){
       var s = document.getElementById(id); if (s) s.value = "all";
     });
   } catch (e) { /* never break navigation */ }
@@ -2579,6 +2775,7 @@ function renderAdmin(){
   var inR = s.inR;
   document.getElementById("adminKpis").innerHTML = adminKpisHTML(s);
   document.getElementById("journeySteps").innerHTML = journeyHTML(s);
+  bindAdminKpiClicks();
 
   /* The page's three task sections are a partition BY TASK ID — each task
      appears in exactly one of them. Today's actions takes every task due
@@ -2592,21 +2789,35 @@ function renderAdmin(){
      already claimed by Today's actions.
      Same table and columns as Today's actions below. */
   var urgAdmin = ADMIN_ACTIONS.filter(function(a){ return !a.done && inRange(a.dueISO) && urgentSignals(a).length && !todayIds[a.id]; });
-  var urgIds = {};
-  urgAdmin.forEach(function(a){ urgIds[a.id] = true; });
   var urgExtra = URGENT_EXTRA.filter(function(u){ return !u.done && inRange(u.dueISO) && urgentSignals(u).length; });
   var urgCount = urgAdmin.length + urgExtra.length;
   var badge = document.getElementById("urgentBadge");
   if(badge) badge.style.display = urgCount ? "" : "none";
   document.getElementById("urgentHead").style.display = urgCount ? "" : "none";
-  var urgItems = urgAdmin.map(function(a){ return [a, "admin", ADMIN_ACTIONS.indexOf(a)]; })
-    .concat(urgExtra.map(function(u){ return [u, "extra", URGENT_EXTRA.indexOf(u)]; }));
+  /* Urgent filters — physio dropdown + signal chips narrow this list
+     only. Counts are faceted from the physio-filtered set (a task with
+     several signals counts in each of its chips); the badge above still
+     counts every urgent task. */
+  var urgPhysioSel = document.getElementById("urgentPhysioFilter");
+  var urgPhysio = urgPhysioSel ? urgPhysioSel.value : "all";
+  var urgBase = urgAdmin.concat(urgExtra).filter(function(a){ return urgPhysio === "all" || urgentPhysioOf(a) === urgPhysio; });
+  var urgChipCounts = { all: urgBase.length, urgent: 0, over24h: 0, pastdue: 0 };
+  urgBase.forEach(function(a){ urgentSignalKeys(a).forEach(function(k){ if (urgChipCounts[k] != null) urgChipCounts[k]++; }); });
+  renderStatusPills("urgentPills", [
+    {key:"all", label:"All"}, {key:"urgent", label:"Priority urgent"}, {key:"over24h", label:"Open >24h"}, {key:"pastdue", label:"Past due"}
+  ], urgChipCounts, urgentChipFilter, function(k){ urgentChipFilter = k; renderAdmin(); });
+  var urgFiltered = urgBase.filter(function(a){ return urgentChipMatch(a, urgentChipFilter); });
+  var urgItems = urgFiltered.map(function(a){
+    var idx = ADMIN_ACTIONS.indexOf(a);
+    return idx !== -1 ? [a, "admin", idx] : [a, "extra", URGENT_EXTRA.indexOf(a)];
+  });
   var urgHtml = urgItems.slice(0, urgShowN).map(function(it){ return actionRowHTML(it[0], it[1], it[2]); }).join("");
-  if(urgCount > urgShowN) urgHtml += '<div class="load-more-row"><button class="btn" id="urgMore">Load more · '+(urgCount - urgShowN)+' more</button></div>';
+  if(urgFiltered.length > urgShowN) urgHtml += '<div class="load-more-row"><button class="btn" id="urgMore">Load more · '+(urgFiltered.length - urgShowN)+' more</button></div>';
   document.getElementById("urgentList").innerHTML = urgCount
-    ? urgHtml
+    ? (urgFiltered.length ? urgHtml : '<div class="empty-note">No urgent tasks match this filter.</div>')
     : '<div class="empty-note">Nothing urgent in this date range.</div>';
   bindActionRows(document.getElementById("urgentList"));
+  bindAdminTaskDetail(document.getElementById("urgentList"));
   var umb = document.getElementById("urgMore");
   if(umb) umb.addEventListener("click", function(){ urgShowN += 60; renderAdmin(); });
 
@@ -2621,6 +2832,7 @@ function renderAdmin(){
   document.getElementById("actionRows").innerHTML = restHtml;
   document.getElementById("actionEmpty").classList.toggle("hidden-row", rest.length>0);
   bindActionRows(document.getElementById("actionRows"));
+  bindAdminTaskDetail(document.getElementById("actionRows"));
   var amb = document.getElementById("adminMore");
   if(amb) amb.addEventListener("click", function(){ adminShowN += 60; renderAdmin(); });
 
@@ -2651,9 +2863,20 @@ function renderAdmin(){
     else if (adminTaskFilter === "completed") bottom = doneInR;
     else if (adminTaskFilter === "cancelled") bottom = cancInR;
     else bottom = inR.concat(doneInR, cancInR);
-    var bottomEmpty = (adminTaskFilter === "all")
-      ? '<div class="empty-note">No tasks in this date range.</div>'
-      : '<div class="empty-note">No ' + adminTaskFilter + ' tasks in this date range.</div>';
+    /* KPI / journey-strip filter intersects with the status pills:
+       it narrows the same bottom list (pill counts stay the counts of
+       the full in-range set). Carried over counts open tasks created
+       yesterday across ALL tasks, while this list is the in-range
+       subset — under "All dates" they agree exactly. */
+    if (adminKpiFilter !== "all"){
+      var kpiCtx = { wkStart: s.wkStart, wkEnd: s.wkEnd, yesterdayISO: s.yesterdayISO, inR: inR, doneInR: doneInR, cancInR: cancInR };
+      bottom = bottom.filter(function(a){ return adminKpiMatch(a, adminKpiFilter, kpiCtx); });
+    }
+    var bottomEmpty = (adminKpiFilter !== "all")
+      ? '<div class="empty-note">No ' + (ADMIN_KPI_LABELS[adminKpiFilter] || adminKpiFilter) + ' tasks in this date range.</div>'
+      : (adminTaskFilter === "all"
+        ? '<div class="empty-note">No tasks in this date range.</div>'
+        : '<div class="empty-note">No ' + adminTaskFilter + ' tasks in this date range.</div>');
     var bHtml = bottom.length ? bottom.slice(0, adminAllShowN).map(function(a){
       if (doneInR.indexOf(a) !== -1) return adminDoneRowHTML(a, "completed");
       if (cancInR.indexOf(a) !== -1) return adminDoneRowHTML(a, "cancelled");
@@ -2667,6 +2890,7 @@ function renderAdmin(){
     var abm = document.getElementById("adminAllMore");
     if (abm) abm.addEventListener("click", function(){ adminAllShowN += 120; renderAdmin(); });
     bindPatientClicks(bottomEl);
+    bindAdminTaskDetail(bottomEl);
   }
 
   /* Physio tasks — each physio's pending (unprocessed) appointments, the
@@ -2698,6 +2922,66 @@ function renderAdminCountsOnly(){
   var s = adminStats();
   document.getElementById("adminKpis").innerHTML = adminKpisHTML(s);
   document.getElementById("journeySteps").innerHTML = journeyHTML(s);
+  bindAdminKpiClicks();
+}
+/* Admin Today task detail — opens one task from the Admin Today lists
+   (Urgent / Today's actions / All admin tasks) in the same shared
+   detail rows as the patient file and My Tasks. The lookup searches
+   ADMIN_ACTIONS, then the completed / cancelled lists, then the urgent
+   extras. Back returns to Admin Today with the filter state untouched
+   (the filter vars are never reset here). */
+function openAdminTaskDetail(taskId){
+  var a = null;
+  ADMIN_ACTIONS.forEach(function(x){ if (String(x.id) === String(taskId)) a = x; });
+  if (!a) COMPLETED_TASKS.forEach(function(x){ if (String(x.id) === String(taskId)) a = x; });
+  if (!a) CANCELLED_TASKS.forEach(function(x){ if (String(x.id) === String(taskId)) a = x; });
+  if (!a) URGENT_EXTRA.forEach(function(x){ if (String(x.id) === String(taskId)) a = x; });
+  if (!a) return;
+  var det = document.getElementById("adminTaskDetail"); if (!det) return;
+  var patientName = a.patient || (a.pid ? (enqPatient(a.pid).name || "") : "No contact linked");
+  det.innerHTML = '<button class="btn" id="adminTaskDetailBack" style="margin-bottom:16px">← Back to Admin Today</button><div class="panel"><h3>Task detail</h3>' + taskDetailRows(a, patientName) + '</div>';
+  det.hidden = false;
+  var sec = document.getElementById("page-admin-today"); if (sec) sec.classList.add("detail-open");
+  document.getElementById("adminTaskDetailBack").addEventListener("click", closeAdminTaskDetail);
+  window.scrollTo({top:0});
+}
+function closeAdminTaskDetail(){
+  var det = document.getElementById("adminTaskDetail"); if (det){ det.hidden = true; det.innerHTML = ""; }
+  var sec = document.getElementById("page-admin-today"); if (sec) sec.classList.remove("detail-open");
+  window.scrollTo({top:0});
+}
+/* Row clicks for Admin Today lists — same guard as My Tasks: a click on
+   an input, select, textarea, button or link never opens the detail. */
+function bindAdminTaskDetail(container){
+  if (!container) return;
+  container.querySelectorAll("[data-admin-task]").forEach(function(row){
+    row.classList.add("clickable");
+    row.setAttribute("role", "button");
+    row.setAttribute("tabindex", "0");
+    row.setAttribute("title", "Open task detail");
+    row.addEventListener("click", function(e){
+      if (e.target.closest("input,select,textarea,button,a")) return;
+      openAdminTaskDetail(row.getAttribute("data-admin-task"));
+    });
+    row.addEventListener("keydown", function(e){
+      if (e.key === "Enter"){ e.preventDefault(); openAdminTaskDetail(row.getAttribute("data-admin-task")); }
+    });
+  });
+}
+/* KPI cards + journey strip as filters for the bottom "All admin tasks"
+   list. Clicking a card sets the filter; clicking the active card again
+   clears it. The filter intersects with the status pills + date filter. */
+function bindAdminKpiClicks(){
+  document.querySelectorAll("#adminKpis [data-kpi], #journeySteps [data-kpi]").forEach(function(el){
+    el.addEventListener("click", function(){
+      var k = el.getAttribute("data-kpi");
+      adminKpiFilter = (adminKpiFilter === k) ? "all" : k;
+      renderAdmin();
+    });
+    el.addEventListener("keydown", function(e){
+      if (e.key === "Enter"){ e.preventDefault(); var k = el.getAttribute("data-kpi"); adminKpiFilter = (adminKpiFilter === k) ? "all" : k; renderAdmin(); }
+    });
+  });
 }
 /* One row of the Admin Today bottom list (same look as the task rows used
    elsewhere) — carries its ADMIN_ACTIONS index so Mark done hits the
@@ -2708,14 +2992,22 @@ function adminBottomRowHTML(a){
   var btn = a.done
     ? '<button class="btn small done-state" disabled>Done \u2713</button>'
     : '<button class="btn small task-done" data-admin-idx="' + ADMIN_ACTIONS.indexOf(a) + '">Mark done</button>';
-  return '<div class="task-row"><div class="task-body"><div class="task-title' + (a.done ? " is-done" : "") + '">' + escHtml(a.action) + " \u2014 " + escHtml(a.why) + " " + prio + '</div><div class="task-meta">Type: ' + escHtml(a.action.toLowerCase().replace(/ /g, "_")) + " \u00b7 " + a.dueLabel + link + '</div></div>' + btn + '</div>';
+  var detailAttr = a.id != null ? ' data-admin-task="' + a.id + '"' : "";
+  return '<div class="task-row"'+detailAttr+'><div class="task-body"><div class="task-title' + (a.done ? " is-done" : "") + '">' + escHtml(a.action) + " \u2014 " + escHtml(a.why) + " " + prio + '</div><div class="task-meta">Type: ' + escHtml(a.action.toLowerCase().replace(/ /g, "_")) + " \u00b7 " + a.dueLabel + link + withFlagHTML(a) + '</div></div>' + btn + '</div>';
 }
 /* Read-only row for completed / cancelled tasks in the filtered
    All admin tasks list — no Mark done button, just the outcome tag. */
 function adminDoneRowHTML(a, kind){
   var tag = kind === "completed" ? '<span class="tag green">Done</span>' : '<span class="tag red">Cancelled</span>';
   var link = a.pid ? ' \u00b7 <button class="link-btn" style="padding:0;min-height:0" data-patient-link="' + a.pid + '">Patient file</button>' : " \u00b7 No contact linked";
-  return '<div class="task-row"><div class="task-body"><div class="task-title">' + escHtml(a.action) + " \u2014 " + escHtml(a.why) + '</div><div class="task-meta">Type: ' + escHtml(a.type || "") + " \u00b7 " + a.dueLabel + link + '</div></div>' + tag + '</div>';
+  /* Clickable like the open rows (opens the same detail, which shows the
+     completion history). No "Currently with" flag here — a completed or
+     cancelled task has no current owner. Completed rows carry the
+     history line (outcome · by · when · lateness); cancelled rows do
+     not — there is no completion to report. */
+  var detailAttr = a.id != null ? ' data-admin-task="' + a.id + '"' : "";
+  var hist = kind === "completed" ? taskHistoryText(a) : "";
+  return '<div class="task-row"'+detailAttr+'><div class="task-body"><div class="task-title">' + escHtml(a.action) + " \u2014 " + escHtml(a.why) + '</div><div class="task-meta">Type: ' + escHtml(a.type || "") + " \u00b7 " + a.dueLabel + link + '</div>' + (hist ? '<div class="cell-sub">' + escHtml(hist) + '</div>' : '') + '</div>' + tag + '</div>';
 }
 
 /* ================= ENQUIRIES & LEADS (3-level drill-down) ================= */
@@ -3253,6 +3545,12 @@ function renderComplaints(){
    ones — the "Booked again" KPI counts the reactivated subset. */
 var DC_ROWS = [];
 var DC_SEQ_VALUE = "—", DC_SEQ_SUB = "—", DC_BOOKED_SUB = "", DC_FOOT = "";
+/* Journey-metrics rows (vw_journey_metrics_plus) — set by applyLiveData.
+   renderPayments reads this global: the live-data script's LIVE object is
+   private to that script, so reading LIVE.lists.journey from a page
+   renderer always saw "undefined" and the Payments page showed
+   "No data yet" even though the view rows were fetched. */
+var JOURNEY_ROWS = null;
 
 function renderDischarged(){
   var el = document.getElementById("dcList"); if(!el) return;
@@ -3285,7 +3583,7 @@ function renderDischarged(){
    there is no per-appointment payment data — only these event counts. */
 function renderPayments(){
   var host = document.getElementById("payBody"); if (!host) return;
-  var rows = (typeof LIVE !== "undefined" && LIVE && LIVE.lists) ? (LIVE.lists.journey || null) : null;
+  var rows = JOURNEY_ROWS;
   function metric(key){
     var found = null;
     (rows || []).forEach(function(x){ if (x && String(x.metric_key) === key) found = x; });
@@ -3917,6 +4215,13 @@ function showSaveErr(anchor){
   var s = saveErrEl(anchor);
   if (s) s.textContent = "Save failed — try again";
 }
+/* Inline row message (same placement and style as the save error) — used
+   when a save is refused before any write, e.g. Mark done with no
+   outcome chosen. It is not a failure: nothing was sent to Supabase. */
+function showSaveMsg(anchor, msg){
+  var s = saveErrEl(anchor);
+  if (s) s.textContent = msg;
+}
 function clearSaveErr(anchor){
   var row = anchor ? anchor.closest(".action-row, .list-row, .task-row") : null;
   if (!row) return;
@@ -4034,6 +4339,18 @@ document.addEventListener("click", function(e){
       if (!a) MY_TASKS.forEach(function(x){ if (String(x.id) === String(tid)) a = x; });
     }
     if (!a || a.done) return;
+    /* Mark done on the Admin Today bottom list behaves like the outcome
+       checkbox: with no outcome chosen and no free text, do NOT save —
+       completing the task would store a null outcome in Supabase
+       (task 2588 is the live evidence). The Team page rows
+       (data-task-id branch) have no outcome picker at all, so they are
+       NOT guarded here — guarding them would block Team completions
+       permanently. */
+    if (viaAdminIdx && !(a.outcome || (a.custom || "").trim())){
+      clearSaveErr(doneBtn);
+      showSaveMsg(doneBtn, "Choose an outcome first");
+      return;
+    }
     clearSaveErr(doneBtn);
     doneBtn.disabled = true; doneBtn.textContent = "Saving…";
     saveTaskDone(a.id, a.outcome || a.custom || null).then(function(ok){
@@ -4171,6 +4488,16 @@ function fetchAll(){
     /* Agency views — SLA overdue and journey / deposit metrics. Both
        resolve to null on failure; applyLiveData falls back gracefully. */
     gated(["admin-today","overview","owner-overview"], function(){ return fetchViewRows("vw_task_sla","task_id,status,is_overdue,sla_due_at","task_id").then(function(d){ lists.sla = d; }); }, function(d){ lists.sla = null; }),
+    /* SLA rules (owner labels + escalation minutes) for the "Currently
+       with" flag. Small table (10 rows); orderCol null — the table has
+       no id column, and listAll's secondary .order("id") would fail
+       (same trap as sequence_definitions). Failure-safe: a failed or
+       empty read leaves lists.slaRules null and the flag hides — the
+       flag is never faked. If the live flag never appears, the likely
+       cause is a missing SELECT grant on task_sla_rules for
+       authenticated (GRANT SELECT ON public.task_sla_rules TO
+       authenticated) — report it, do not invent the flag. */
+    gated(["admin-today","my-tasks","patients"], function(){ return listAll("task_sla_rules","task_type,owner_label,escalation_minutes,response_minutes",null,true).then(function(d){ lists.slaRules = d; }).catch(function(){ lists.slaRules = null; }); }, function(d){ lists.slaRules = null; }),
     gated(["appointments","overview","owner-overview","discharged","payments"], function(){ return fetchViewRows("vw_journey_metrics_plus","*",null).then(function(d){ lists.journey = d; }); }, function(d){ lists.journey = null; }),
     /* My Work — the two scoped jobs. fetchMyAppts filters by the
        physio's own practitioner_id; fetchMyWork derives the patient
@@ -4465,7 +4792,7 @@ function renderMyTasksDone(){
   if (!MY_TASKS_DONE.length){ wrap.innerHTML = ""; if (empty) empty.classList.remove("hidden-row"); return; }
   if (empty) empty.classList.add("hidden-row");
   wrap.innerHTML = MY_TASKS_DONE.slice(0, 50).map(function(a){
-    return '<div class="list-row clickable" data-my-task="'+a.id+'" role="button" tabindex="0" title="Open task detail" style="grid-template-columns:1.5fr 1fr .8fr"><div class="cell-main">'+escHtml(a.patient)+' — '+escHtml(a.action)+'</div><div class="cell-sub">'+escHtml(a.openedLabel)+'</div><div style="text-align:right"><span class="tag green">'+escHtml(a.savedOutcome || "Done")+'</span></div></div>';
+    return '<div class="list-row clickable" data-my-task="'+a.id+'" role="button" tabindex="0" title="Open task detail" style="grid-template-columns:1.5fr 1fr .8fr"><div class="cell-main">'+escHtml(a.patient)+' — '+escHtml(a.action)+'</div><div class="cell-sub">'+escHtml(taskHistoryText(a) || a.openedLabel)+'</div><div style="text-align:right"><span class="tag green">'+escHtml(a.savedOutcome || "Done")+'</span></div></div>';
   }).join("");
   wrap.querySelectorAll("[data-my-task]").forEach(function(el){
     el.addEventListener("click", function(){ openMyTaskDetail(el.getAttribute("data-my-task")); });
@@ -4559,6 +4886,8 @@ function applyLiveData(data){
       var appt = (md.appointment_id != null) ? myApptById[String(md.appointment_id)] : null;
       var item = { id: t.id, pid: pidOf(t.contact_id), patient: nameOf(t.contact_id),
         status: t.status || "open", openedLabel: fmtWhen(t.created_at), createdISO: (t.created_at || "").slice(0,10),
+        createdAt: t.created_at || "",
+        doneISO: londonISO(t.completed_at || t.created_at || "") || (t.completed_at || t.created_at || "").slice(0,10),
         dueISO: dueISO, slaOverdue: null,
         priority: (t.priority === "urgent" || t.priority === "high") ? "urgent" : "normal",
         done: t.status !== "open", outcome: "", custom: "", metadata: t.metadata || {},
@@ -4592,6 +4921,17 @@ function applyLiveData(data){
   if (lists.sla){
     slaMap = {};
     lists.sla.forEach(function(r){ if (r.task_id != null) slaMap[String(r.task_id)] = r; });
+  }
+  /* "Currently with" rules — task_type -> {owner, esc}. Null when the
+     rules fetch failed, returned empty, or the page is not allowed:
+     the flag hides, never fakes. Built here (before renderMyWork) so
+     the first My Tasks render already has the rules. */
+  SLA_RULES = null;
+  if (lists.slaRules && lists.slaRules.length){
+    SLA_RULES = {};
+    lists.slaRules.forEach(function(r){
+      if (r && r.task_type) SLA_RULES[String(r.task_type)] = { owner: r.owner_label || "", esc: r.escalation_minutes };
+    });
   }
   /* My Tasks detail: fill the SLA due date where the view has one
      (owners only — physios never fetch vw_task_sla, so theirs stays ""). */
@@ -4655,6 +4995,11 @@ function applyLiveData(data){
   COMPLETED_TASKS = [];
   CANCELLED_TASKS = [];
   CR_TASKS = [];
+  /* Linked-appointment lookup for the detail view. (The patient-file
+     apptById map is built later in this function, so the admin lists
+     use their own local map.) */
+  var adminApptById = {};
+  (lists.appts || []).forEach(function(a){ if (a && a.id != null) adminApptById[String(a.id)] = a; });
   (lists.tasks || []).forEach(function(t){
     var dueRaw = t.due_at || t.created_at || "";
     var dueISO = londonISO(dueRaw) || dueRaw.slice(0,10);
@@ -4665,16 +5010,34 @@ function applyLiveData(data){
     /* Only trust is_overdue when the view gives an actual SLA due date;
        sla_due_at null means no SLA rule for this task — old logic stays. */
     var slaOverdue = (slaRow && slaRow.sla_due_at != null) ? !!slaRow.is_overdue : fallbackOverdue;
+    var md = t.metadata || {};
+    var appt = (md.appointment_id != null) ? adminApptById[String(md.appointment_id)] : null;
+    /* One full item for every status: open tasks go to ADMIN_ACTIONS,
+       completed and cancelled tasks go to their own lists as the SAME
+       full object (not the old reduced shape) — so the detail view and
+       the completion history have id, outcome, by/at, and dates. */
     var item = { id: t.id, pid: pidOf(t.contact_id), patient: nameOf(t.contact_id),
       status: (t.status === "open" && slaOverdue) ? "overdue" : "today",
       slaOverdue: slaOverdue,
-      dueLabel: fmtDay(dueRaw), dueISO: dueISO, createdISO: createdISO,
+      dueLabel: fmtDay(dueRaw), dueISO: dueISO, doneISO: doneISO, createdISO: createdISO,
       priority: (t.priority === "urgent" || t.priority === "high") ? "urgent" : "normal",
       carried: t.status === "open" && createdISO === isoAdd(TODAY_ISO, -1), done: t.status !== "open", outcome: "", custom: "", metadata: t.metadata || {},
-      action: stripMarkup(humanize(t.task_type || "Task")), why: stripMarkup(trunc(t.title || "", 170)) };
+      action: stripMarkup(humanize(t.task_type || "Task")), why: stripMarkup(trunc(t.title || "", 170)),
+      t: stripMarkup(t.title || ""), type: stripMarkup(t.task_type || ""), typeLabel: humanize(t.task_type || "Task"),
+      st: t.status === "open" ? "Open" : (t.status === "completed" ? "Done" : (t.status === "cancelled" ? "Cancelled" : humanize(t.status || ""))),
+      p: (t.priority === "high" || t.priority === "urgent") ? "high" : (t.priority === "low" ? "low" : "med"),
+      prioLabel: (t.priority === "high" || t.priority === "urgent") ? "High" : (t.priority === "low" ? "Low" : "Medium"),
+      due: t.due_at ? fmtDay(t.due_at) : "", createdLabel: fmtWhen(t.created_at),
+      completedLabel: t.completed_at ? fmtWhen(t.completed_at) : "",
+      slaLabel: (slaRow && slaRow.sla_due_at) ? fmtWhen(slaRow.sla_due_at) : "",
+      reason: stripMarkup(t.reason || ""), department: stripMarkup(t.department || ""),
+      savedOutcome: (md.outcome != null && md.outcome !== "") ? String(md.outcome) : "",
+      outcomeAt: md.outcome_at ? fmtWhen(md.outcome_at) : "", outcomeBy: stripMarkup(md.outcome_by || ""),
+      apptLabel: appt ? (fmtWhen(appt.starts_at) + " · " + (pracName[appt.practitioner_id] || "") + " · " + humanize(appt.status || "")) : "",
+      createdAt: t.created_at || "" };
     if (t.status === "open") ADMIN_ACTIONS.push(item);
-    else if (t.status === "completed") COMPLETED_TASKS.push({ pid: item.pid, patient: item.patient, dueISO: dueISO, doneISO: doneISO, action: item.action, why: item.why, dueLabel: item.dueLabel, type: stripMarkup(t.task_type || "") });
-    else if (t.status === "cancelled") CANCELLED_TASKS.push({ pid: item.pid, patient: item.patient, dueISO: dueISO, doneISO: doneISO, action: item.action, why: item.why, dueLabel: item.dueLabel, type: stripMarkup(t.task_type || "") });
+    else if (t.status === "completed") COMPLETED_TASKS.push(item);
+    else if (t.status === "cancelled") CANCELLED_TASKS.push(item);
   });
 
   /* Complaints & refunds — from their own targeted fetch by task_type,
@@ -4810,6 +5173,9 @@ function applyLiveData(data){
   DC_SEQ_SUB = dcSeq.length ? ("DISCHARGE_RETRY · " + dcSeq.length + " sequence" + (dcSeq.length === 1 ? "" : "s")) : "No discharge sequence";
   var dcRbN = DC_ROWS.filter(function(r){ return r.rebooked; }).length;
   DC_BOOKED_SUB = dcRbN + " of " + DC_ROWS.length + " discharged";
+  /* Publish the journey rows for the Payments page renderer (global —
+     it cannot see this script's LIVE object). */
+  JOURNEY_ROWS = lists.journey || null;
   var dcJm = {};
   (lists.journey || []).forEach(function(r){ if (r && r.metric_key) dcJm[String(r.metric_key)] = r.all_time_count; });
   DC_FOOT = "Reactivation events: " + fmtNum(dcJm.reactivation_sequence || 0)
@@ -4953,11 +5319,15 @@ function applyLiveData(data){
           p: t.priority === "high" || t.priority === "urgent" ? "high" : (t.priority === "low" ? "low" : "med"),
           prioLabel: t.priority === "high" || t.priority === "urgent" ? "High" : (t.priority === "low" ? "Low" : "Medium"),
           due: t.due_at ? fmtDay(t.due_at) : "",
+          dueISO: londonISO(t.due_at || t.created_at || "") || (t.due_at || t.created_at || "").slice(0,10),
+          doneISO: londonISO(t.completed_at || "") || (t.completed_at || "").slice(0,10),
+          createdAt: t.created_at || "",
           createdLabel: fmtWhen(t.created_at),
           completedLabel: t.completed_at ? fmtWhen(t.completed_at) : "",
           slaLabel: (slaRow && slaRow.sla_due_at) ? fmtWhen(slaRow.sla_due_at) : "",
           reason: stripMarkup(t.reason || ""), department: stripMarkup(t.department || ""),
-          outcome: stripMarkup(md.outcome || ""), outcomeAt: md.outcome_at ? fmtWhen(md.outcome_at) : "",
+          outcome: stripMarkup(md.outcome || ""), savedOutcome: (md.outcome != null && md.outcome !== "") ? String(md.outcome) : "",
+          outcomeAt: md.outcome_at ? fmtWhen(md.outcome_at) : "",
           outcomeBy: stripMarkup(md.outcome_by || ""),
           apptLabel: appt ? (fmtWhen(appt.starts_at) + " · " + (pracName[appt.practitioner_id] || "") + " · " + humanize(appt.status || "")) : "" };
       }) };
@@ -5001,6 +5371,11 @@ function applyLiveData(data){
 
   updateLiveTotals(counts, lists);
   rebuildProgressMonths(lists.monthly || []);
+  /* Overview chart — AFTER rebuildProgressMonths: renderOvTrend reads
+     PROG_MONTHLY, which is empty until the line above runs. It used to
+     be called inside updateLiveTotals (one line earlier), so it always
+     saw an empty list and the panel showed "No data yet". */
+  renderOvTrend();
   if (typeof window.renderProgressList === "function") window.renderProgressList();
   rebuildDncList(lists.contacts || []);
   rebuildUnproc(lists);
@@ -5185,6 +5560,8 @@ function updateLiveTotals(counts, lists){
   setText("ooOverdue", fmtNum(overdue));
   setText("ooDueToday", fmtNum(dueToday));
   setText("ovDueToday", fmtNum(dueToday));
+  setText("ovCompTasks", fmtNum(counts.tasksComplaint + counts.tasksRefund));
+  setText("ovCompSub", fmtNum(counts.tasksComplaint) + " complaints / " + fmtNum(counts.tasksRefund) + " refunds \u00b7 all time");
   setText("ovNewPatients", fmtNum(newThisMonth));
   setText("ovNewSub", "New contacts \u00b7 " + (lp2 ? lp2.mon + " " + lp2.year : ""));
   if (lm){ setText("ovAttended", fmtNum(lm.attended)); setText("ovAttendedSub", lab); }
@@ -5193,7 +5570,6 @@ function updateLiveTotals(counts, lists){
   if (lm) setText("ooDnaSub", "All time \u00b7 " + fmtNum(lm.no_shows) + " in " + lab);
   setText("ooLost", fmtNum(lost));
   setText("ovDnc", fmtNum(counts.contactsDnc));
-  renderOvTrend();
   setText("pillDnc", fmtNum(counts.contactsDnc));
   setText("crCompHead", fmtNum(counts.tasksComplaint) + " tasks in total");
   setText("crRefHead", fmtNum(counts.tasksRefund) + " tasks in total");
