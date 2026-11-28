@@ -14,7 +14,9 @@ account that can call it; everyone else gets `403 owner only`.
 - `set_practitioner` `{user_id, practitioner_id|null}` — links a user
   login to a physio (their My Work pages show only that physio's data).
   `practitioner_id` must be a `practicehub_practitioners` id (1 Stuart,
-  7 Kate, 8 Lucy, 9 Arek, 11 Ethan, 12 Aadyaa); `null` removes the link.
+  7 Kate, 8 Lucy, 9 Arek, 11 Ethan, 12 Aadyaa) — or, as a safety net, an
+  id that appears in `appointments` but is missing from that table (the
+  dashboard offers those too); `null` removes the link.
   The owner cannot be mapped. Requires the `practitioner_id` column on
   `admin_users` — run `../my-work-sql/setup.sql` Section A first.
 - `set_active` `{user_id, active}` — deactivate (remove access) / reactivate.

@@ -169,7 +169,9 @@ Deno.serve(async (req: Request) => {
     }
 
     // Link a user login to a physio (My Work pages). The id must be a
-    // practicehub_practitioners.practitioner_id; null removes the link.
+    // practicehub_practitioners.practitioner_id, or — safety net — an id
+    // that appears in appointments but is missing from that table (the
+    // dashboard offers those too); null removes the link.
     // The owner has no mapping (they see everything). Requires the
     // practitioner_id column on admin_users (my-work-sql/setup.sql).
     if (action === "set_practitioner") {
@@ -191,12 +193,24 @@ Deno.serve(async (req: Request) => {
         return respond(headers, { ok: false, error: "owner has no physio mapping" }, 400);
       }
       if (practitionerId !== null) {
+        // Accept ids from practicehub_practitioners, or — safety net —
+        // ids that appear in appointments but are missing from that
+        // table (the dashboard offers those too). Today both sources
+        // agree (6 = 6), so this changes nothing yet.
         const { data: prac } = await sb
           .from("practicehub_practitioners")
           .select("practitioner_id")
           .eq("practitioner_id", practitionerId)
           .maybeSingle();
-        if (!prac) return respond(headers, { ok: false, error: "practitioner not found" }, 404);
+        if (!prac) {
+          const { data: appt } = await sb
+            .from("appointments")
+            .select("practitioner_id")
+            .eq("practitioner_id", practitionerId)
+            .limit(1)
+            .maybeSingle();
+          if (!appt) return respond(headers, { ok: false, error: "practitioner not found" }, 404);
+        }
       }
       const { error: updErr } = await sb
         .from("admin_users")
