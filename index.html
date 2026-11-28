@@ -188,6 +188,8 @@ h1,h2,h3{font-family:"Fraunces",Georgia,serif;font-weight:600;line-height:1.15;m
 .task-row:last-child{border-bottom:0}
 .task-row.clickable{cursor:pointer;border-radius:6px}
 .task-row.clickable:hover{background:var(--surface-3)}
+.action-row.clickable{cursor:pointer;border-radius:6px}
+.action-row.clickable:hover{background:var(--surface-3)}
 .task-body{flex:1;min-width:0}
 .task-title{font-weight:700;font-size:14.5px}
 .task-title.is-done{color:var(--muted);text-decoration:line-through}
@@ -563,9 +565,9 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
 .user-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
 .invite-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
 .invite-type-row{display:flex;gap:18px;align-items:center;padding:2px 0}
-.type-opt{display:inline-flex;gap:6px;align-items:center;font-weight:600;cursor:pointer;padding:8px 12px;border:1px solid transparent;border-radius:10px}
+.type-opt{display:inline-flex;gap:6px;align-items:center;font-weight:600;cursor:pointer;padding:6px 12px;border:1px solid transparent;border-radius:10px}
 .type-opt input{width:18px;height:18px;accent-color:var(--teal-deep);flex:none;cursor:pointer}
-.type-opt.selected{background:var(--teal-soft);border-color:var(--teal-deep);font-weight:800}
+.type-opt.selected{background:#25272A;border:2px solid var(--teal-deep);color:#fff;font-weight:800}
 @media (max-width:640px){.invite-grid{grid-template-columns:1fr}}
 .btn.confirm{background:var(--amber-bg);border-color:var(--amber-dot);color:var(--amber)}
 .user-card.owner-card{background:var(--surface-3)}
@@ -1342,6 +1344,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
           <div id="myApptRows"><div class="empty-note">No data yet</div></div>
           <div class="empty-note hidden-row" id="myApptEmpty">No appointments yet.</div>
         </div>
+        <div id="myApptDetail" hidden></div>
       </section>
 
       <!-- ======== MY PATIENTS ======== -->
@@ -1373,17 +1376,18 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
         <div class="panel" id="myTaskUnmapped" hidden>
           <div class="empty-note">No physio linked to this account — ask the owner.</div>
         </div>
-        <div class="panel" style="margin-bottom:22px">
+        <div class="panel" id="myTaskOpenPanel" style="margin-bottom:22px">
           <div class="panel-head"><h3>Open tasks</h3></div>
           <div class="action-head"><span></span><span>Status</span><span>Patient</span><span>Action</span><span>Why</span><span>Opened</span><span>Outcome</span></div>
           <div id="myTaskRows"></div>
           <div class="empty-note hidden-row" id="myTaskEmpty">No open tasks.</div>
         </div>
-        <div class="panel">
+        <div class="panel" id="myTaskDonePanel">
           <div class="panel-head"><h3>Completed</h3></div>
           <div id="myTaskDoneRows"></div>
           <div class="empty-note hidden-row" id="myTaskDoneEmpty">Nothing completed yet.</div>
         </div>
+        <div id="myTaskDetail" hidden></div>
       </section>
 
       <!-- ======== USERS & ACCESS (owner only) ======== -->
@@ -1629,7 +1633,7 @@ function showPage(id, restoreY){
   closeSidebar();
   window.scrollTo({top:(typeof restoreY==="number" ? restoreY : 0)});
 }
-document.querySelectorAll(".nav-item").forEach(function(b){ b.addEventListener("click", function(){ showPage(b.getAttribute("data-page")); }); });
+document.querySelectorAll(".nav-item").forEach(function(b){ b.addEventListener("click", function(){ var pg = b.getAttribute("data-page"); if (pg === "my-appointments") closeMyApptDetail(); if (pg === "my-tasks") closeMyTaskDetail(); showPage(pg); }); });
 document.querySelectorAll("[data-goto]").forEach(function(b){ b.addEventListener("click", function(){ showPage(b.getAttribute("data-goto")); }); });
 
 var sidebar=document.getElementById("sidebar"), scrim=document.getElementById("scrim");
@@ -1672,12 +1676,13 @@ function filePanels(id, p){
 var currentPatientId = null;
 /* Task detail — opened from the Tasks box on a patient file. Shows the
    full task; Back returns to the same patient file. */
-function openTaskDetail(patientId, taskIdx){
-  var p = PATIENTS[patientId] || (window.EXTRA_PATIENTS||{})[patientId]; if(!p) return;
-  var f = FILES[patientId] || {tasks:[]};
-  var t = (f.tasks || [])[taskIdx]; if(!t) return;
+/* Shared task-detail rows — used by the patient file AND by My Tasks.
+   The patient-file entries carry the outcome in t.outcome; My Tasks
+   items carry it in savedOutcome (their outcome field is the dropdown
+   state), and their title in t (patient-file entries) or title. */
+function taskDetailRows(t, patientName){
   var rows = "";
-  rows += kvRow("Title", escHtml(t.t));
+  rows += kvRow("Title", escHtml(t.t || t.title || ""));
   rows += kvRow("Type", escHtml(t.typeLabel || t.type));
   rows += kvRow("Status", escHtml(t.st));
   rows += kvRow("Opened", escHtml(t.createdLabel || "—"));
@@ -1687,17 +1692,90 @@ function openTaskDetail(patientId, taskIdx){
   rows += kvRow("Due", escHtml(t.due || "—"));
   if (t.slaLabel) rows += kvRow("SLA due", escHtml(t.slaLabel));
   if (t.completedLabel) rows += kvRow("Completed", escHtml(t.completedLabel));
-  rows += kvRow("Outcome", escHtml(t.outcome || "—"));
+  rows += kvRow("Outcome", escHtml(t.outcome || t.savedOutcome || "—"));
   if (t.outcomeAt) rows += kvRow("Outcome time", escHtml(t.outcomeAt));
   if (t.outcomeBy) rows += kvRow("Outcome by", escHtml(t.outcomeBy));
-  rows += kvRow("Patient", escHtml(p.name));
+  rows += kvRow("Patient", escHtml(patientName));
   rows += kvRow("Linked appointment", escHtml(t.apptLabel || "No appointment linked"));
+  return rows;
+}
+function openTaskDetail(patientId, taskIdx){
+  var p = PATIENTS[patientId] || (window.EXTRA_PATIENTS||{})[patientId]; if(!p) return;
+  var f = FILES[patientId] || {tasks:[]};
+  var t = (f.tasks || [])[taskIdx]; if(!t) return;
+  var rows = taskDetailRows(t, p.name);
   document.getElementById("profileWrap").innerHTML =
     '<button class="btn" id="taskDetailBack" style="margin-bottom:16px">← Back to ' + escHtml(p.name) + '</button>'
     + '<div class="panel"><h3>Task detail</h3>' + rows + '</div>';
   var bb = document.getElementById("backBtn"); if (bb) bb.style.display = "none";
   document.getElementById("taskDetailBack").addEventListener("click", function(){ openPatient(patientId); });
   showPage("patient");
+}
+
+/* My Appointments detail — opened from a row on My Appointments.
+   Reads only MY_APPTS (the scoped list the page already renders: the
+   physio's own appointments, or all of them for the owner), so a
+   physio can never open another physio's appointment. Deposit and
+   payment show "Not recorded" when Supabase holds nothing for them —
+   never invented. Back returns to the My Appointments list. */
+function openMyApptDetail(apptId){
+  var a = null;
+  MY_APPTS.forEach(function(x){ if (String(x.id) === String(apptId)) a = x; });
+  if (!a) return;
+  var card = document.getElementById("myApptCard"); if (card) card.hidden = true;
+  var det = document.getElementById("myApptDetail"); if (!det) return;
+  var rows = "";
+  rows += kvRow("Patient", escHtml(a.patient));
+  rows += kvRow("When", escHtml(a.label));
+  if (a.endsLabel) rows += kvRow("Ends", escHtml(a.endsLabel));
+  rows += kvRow("Status", escHtml(humanize(a.status)));
+  rows += kvRow("Practitioner", escHtml(a.practitioner));
+  rows += kvRow("Type", escHtml(a.typeName));
+  rows += kvRow("Source", escHtml(a.source || "—"));
+  if (a.ref) rows += kvRow("Reference", escHtml(a.ref));
+  if (a.status === "cancelled"){
+    rows += kvRow("Cancellation reason", escHtml(a.cancelReason || "—"));
+    if (a.cancelDate) rows += kvRow("Cancelled on", escHtml(a.cancelDate));
+    if (a.cancelCat) rows += kvRow("Cancellation category", escHtml(a.cancelCat));
+    if (a.cancelClass) rows += kvRow("Cancellation class", escHtml(a.cancelClass));
+  }
+  rows += kvRow("Deposit status", escHtml(a.deposit || "Not recorded"));
+  rows += kvRow("Payment outcome", escHtml(a.charge || "Not recorded"));
+  det.innerHTML = '<button class="btn" id="myApptDetailBack" style="margin-bottom:16px">← Back to My Appointments</button><div class="panel"><h3>Appointment detail</h3>' + rows + '</div>';
+  det.hidden = false;
+  document.getElementById("myApptDetailBack").addEventListener("click", closeMyApptDetail);
+  window.scrollTo({top:0});
+}
+function closeMyApptDetail(){
+  var det = document.getElementById("myApptDetail"); if (det){ det.hidden = true; det.innerHTML = ""; }
+  var card = document.getElementById("myApptCard"); if (card) card.hidden = myUnmapped();
+  window.scrollTo({top:0});
+}
+/* My Tasks detail — reuses the patient-file task detail rows. Reads
+   only MY_TASKS / MY_TASKS_DONE (the scoped lists the page renders),
+   so a physio can never open another physio's task. Back returns to
+   the My Tasks list. The row's own controls are untouched. */
+function openMyTaskDetail(taskId){
+  var a = null;
+  MY_TASKS.forEach(function(x){ if (String(x.id) === String(taskId)) a = x; });
+  if (!a) MY_TASKS_DONE.forEach(function(x){ if (String(x.id) === String(taskId)) a = x; });
+  if (!a) return;
+  var openPanel = document.getElementById("myTaskOpenPanel");
+  var donePanel = document.getElementById("myTaskDonePanel");
+  var det = document.getElementById("myTaskDetail");
+  if (!det) return;
+  if (openPanel) openPanel.hidden = true;
+  if (donePanel) donePanel.hidden = true;
+  det.innerHTML = '<button class="btn" id="myTaskDetailBack" style="margin-bottom:16px">← Back to My Tasks</button><div class="panel"><h3>Task detail</h3>' + taskDetailRows(a, a.patient) + '</div>';
+  det.hidden = false;
+  document.getElementById("myTaskDetailBack").addEventListener("click", closeMyTaskDetail);
+  window.scrollTo({top:0});
+}
+function closeMyTaskDetail(){
+  var det = document.getElementById("myTaskDetail"); if (det){ det.hidden = true; det.innerHTML = ""; }
+  var openPanel = document.getElementById("myTaskOpenPanel"); if (openPanel) openPanel.hidden = false;
+  var donePanel = document.getElementById("myTaskDonePanel"); if (donePanel) donePanel.hidden = false;
+  window.scrollTo({top:0});
 }
 
 /* ================= PATIENT PROFILE ================= */
@@ -3560,7 +3638,7 @@ function fetchAll(){
 
   var lists = {};
   var TASK_COLS = "id,contact_id,task_type,title,status,priority,created_at,due_at,completed_at,metadata,reason,department";
-  var APPT_COLS = "id,contact_id,practitioner_id,status,starts_at,cancel_reason,cancel_date";
+  var APPT_COLS = "id,contact_id,practitioner_id,appointment_type_id,practicehub_appointment_id,status,starts_at,ends_at,source_channel,cancel_reason,cancel_date,cancel_reason_category,cancellation_class,deposit_status,charge_outcome";
   /* Per-page data gating — a list is only fetched when at least one
      page that uses it is allowed for the signed-in user. A hidden
      page's data is never requested at all. The owner (and the brief
@@ -3645,6 +3723,7 @@ function fetchAll(){
        physio's own practitioner_id; fetchMyWork derives the patient
        list and tasks server-side (see helpers above). */
     gated(["my-appointments"], function(){ return fetchMyAppts(); }, function(d){ lists.myAppts = d; }),
+    gated(["my-appointments","appointments"], function(){ return listQ("practicehub_appointment_types","appointment_type_id,name",null,false,50).then(function(d){ lists.apptTypes = d; }).catch(function(){ lists.apptTypes = []; }); }, function(d){ lists.apptTypes = d; }),
     gated(["my-patients","my-tasks"], function(){ return fetchMyWork(); }, function(d){ lists.myPatientIds = d.ids || []; lists.myContacts = d.contacts || []; lists.myTasks = d.tasks || []; })
   ];
   return Promise.all(jobs.concat(listJobs)).then(function(){
@@ -3743,8 +3822,12 @@ function renderMyAppts(){
   if (empty) empty.classList.add("hidden-row");
   rows.innerHTML = MY_APPTS.map(function(a){
     var tag = a.status === "processed" ? "green" : (a.status === "cancelled" ? "red" : (a.status === "missed" ? "amber" : "blue"));
-    return '<div class="list-row" style="grid-template-columns:1.5fr 1.2fr .8fr"><div class="cell-main">' + escHtml(a.patient) + '</div><div class="cell-sub">' + escHtml(a.label) + '</div><div style="text-align:right"><span class="tag ' + tag + '">' + escHtml(humanize(a.status)) + '</span></div></div>';
+    return '<div class="list-row clickable" data-my-appt="' + a.id + '" role="button" tabindex="0" title="Open appointment detail" style="grid-template-columns:1.5fr 1.2fr .8fr"><div class="cell-main">' + escHtml(a.patient) + '</div><div class="cell-sub">' + escHtml(a.label) + '</div><div style="text-align:right"><span class="tag ' + tag + '">' + escHtml(humanize(a.status)) + '</span></div></div>';
   }).join("");
+  rows.querySelectorAll("[data-my-appt]").forEach(function(el){
+    el.addEventListener("click", function(){ openMyApptDetail(el.getAttribute("data-my-appt")); });
+    el.addEventListener("keydown", function(e){ if (e.key === "Enter"){ e.preventDefault(); openMyApptDetail(el.getAttribute("data-my-appt")); } });
+  });
 }
 function renderMyPatients(){
   var un = document.getElementById("myPatUnmapped"); if (un) un.hidden = !myUnmapped();
@@ -3817,6 +3900,31 @@ function myTaskRowHTML(a, idx){
     + '<input type="text" class="act-custom" placeholder="Or type an outcome…" value="'+a.custom.replace(/"/g,"&quot;")+'" aria-label="Type your own outcome" /></div>'
     + '</div>';
 }
+/* Clicking a My Tasks row (anywhere except its own controls) opens the
+   same full task detail as the patient file. The checkbox, outcome
+   dropdown and free-text input keep their save behaviour untouched —
+   clicks on them never open the detail. */
+function bindMyTaskDetail(container){
+  if (!container) return;
+  container.querySelectorAll(".action-row").forEach(function(row){
+    row.classList.add("clickable");
+    row.setAttribute("role", "button");
+    row.setAttribute("tabindex", "0");
+    row.setAttribute("title", "Open task detail");
+    row.addEventListener("click", function(e){
+      if (e.target && e.target.closest && e.target.closest("input,select,textarea,button,a")) return;
+      var a = MY_TASKS[parseInt(row.getAttribute("data-action-idx"), 10)];
+      if (a) openMyTaskDetail(a.id);
+    });
+    row.addEventListener("keydown", function(e){
+      if (e.key === "Enter" && e.target === row){
+        e.preventDefault();
+        var a2 = MY_TASKS[parseInt(row.getAttribute("data-action-idx"), 10)];
+        if (a2) openMyTaskDetail(a2.id);
+      }
+    });
+  });
+}
 function renderMyTasks(){
   var un = document.getElementById("myTaskUnmapped"); if (un) un.hidden = !myUnmapped();
   var rows = document.getElementById("myTaskRows"); if (!rows) return;
@@ -3830,6 +3938,7 @@ function renderMyTasks(){
     if (empty) empty.classList.add("hidden-row");
     rows.innerHTML = MY_TASKS.map(function(a, i){ return myTaskRowHTML(a, i); }).join("");
     bindActionRows(rows);
+    bindMyTaskDetail(rows);
   }
   renderMyTasksDone();
 }
@@ -3839,8 +3948,12 @@ function renderMyTasksDone(){
   if (!MY_TASKS_DONE.length){ wrap.innerHTML = ""; if (empty) empty.classList.remove("hidden-row"); return; }
   if (empty) empty.classList.add("hidden-row");
   wrap.innerHTML = MY_TASKS_DONE.slice(0, 50).map(function(a){
-    return '<div class="list-row" style="grid-template-columns:1.5fr 1fr .8fr"><div class="cell-main">'+escHtml(a.patient)+' — '+escHtml(a.action)+'</div><div class="cell-sub">'+escHtml(a.openedLabel)+'</div><div style="text-align:right"><span class="tag green">'+escHtml(a.savedOutcome || "Done")+'</span></div></div>';
+    return '<div class="list-row clickable" data-my-task="'+a.id+'" role="button" tabindex="0" title="Open task detail" style="grid-template-columns:1.5fr 1fr .8fr"><div class="cell-main">'+escHtml(a.patient)+' — '+escHtml(a.action)+'</div><div class="cell-sub">'+escHtml(a.openedLabel)+'</div><div style="text-align:right"><span class="tag green">'+escHtml(a.savedOutcome || "Done")+'</span></div></div>';
   }).join("");
+  wrap.querySelectorAll("[data-my-task]").forEach(function(el){
+    el.addEventListener("click", function(){ openMyTaskDetail(el.getAttribute("data-my-task")); });
+    el.addEventListener("keydown", function(e){ if (e.key === "Enter"){ e.preventDefault(); openMyTaskDetail(el.getAttribute("data-my-task")); } });
+  });
 }
 
 /* ---------- map live rows into the dashboard's data ---------- */
@@ -3848,6 +3961,8 @@ function applyLiveData(data){
   var lists = data.lists, counts = data.counts;
   var pracName = {};
   (lists.practitioners || []).forEach(function(p){ pracName[p.practitioner_id] = cleanName(p.name); });
+  var apptTypeName = {};
+  (lists.apptTypes || []).forEach(function(t){ apptTypeName[t.appointment_type_id] = cleanName(t.name); });
   var contactName = {};
   (lists.contacts || []).concat(lists.myContacts || []).forEach(function(c){
     contactName[c.id] = cleanName(((c.first_name || "") + " " + (c.last_name || "")).trim()) || cleanName(c.email) || "Patient";
@@ -3892,7 +4007,15 @@ function applyLiveData(data){
     (lists.myPatientIds || []).forEach(function(id){ myContactIds[String(id)] = true; });
     MY_APPTS = srcAppts.map(function(a){
       return { id: a.id, pid: pidOf(a.contact_id), patient: nameOf(a.contact_id),
-        dateISO: (a.starts_at || "").slice(0,10), label: fmtWhen(a.starts_at), status: a.status || "pending" };
+        dateISO: (a.starts_at || "").slice(0,10), label: fmtWhen(a.starts_at), status: a.status || "pending",
+        practitioner: pracName[a.practitioner_id] || "—",
+        typeName: (a.appointment_type_id != null && apptTypeName[a.appointment_type_id]) ? apptTypeName[a.appointment_type_id] : "—",
+        endsLabel: a.ends_at ? fmtWhen(a.ends_at) : "",
+        source: a.source_channel || "",
+        cancelReason: a.cancel_reason || "", cancelDate: a.cancel_date ? fmtWhen(a.cancel_date) : "",
+        cancelCat: a.cancel_reason_category || "", cancelClass: a.cancellation_class || "",
+        deposit: a.deposit_status || "", charge: a.charge_outcome || "",
+        ref: a.practicehub_appointment_id || "" };
     }).sort(function(x, y){ return (x.dateISO < y.dateISO ? 1 : (x.dateISO > y.dateISO ? -1 : 0)); });
     var apptsByContact = {};
     srcAppts.forEach(function(a){
@@ -3908,16 +4031,30 @@ function applyLiveData(data){
       return { id: c.id, name: contactName[c.id] || "Patient", email: c.email || "", phone: c.phone_e164 || "", dnc: !!c.dnc,
         lastSeen: last ? fmtDay(last) : "—", apptCount: mine.length };
     }).sort(function(x, y){ return (x.name < y.name ? -1 : 1); });
+    var myApptById = {};
+    srcAppts.forEach(function(a){ myApptById[String(a.id)] = a; });
     srcTasks.forEach(function(t){
       var dueRaw = t.due_at || t.created_at || "";
       var dueISO = londonISO(dueRaw) || dueRaw.slice(0,10);
+      var md = t.metadata || {};
+      var appt = (md.appointment_id != null) ? myApptById[String(md.appointment_id)] : null;
       var item = { id: t.id, pid: pidOf(t.contact_id), patient: nameOf(t.contact_id),
         status: t.status || "open", openedLabel: fmtWhen(t.created_at), createdISO: (t.created_at || "").slice(0,10),
         dueISO: dueISO, slaOverdue: null,
         priority: (t.priority === "urgent" || t.priority === "high") ? "urgent" : "normal",
         done: t.status !== "open", outcome: "", custom: "", metadata: t.metadata || {},
         savedOutcome: (t.metadata && t.metadata.outcome) ? String(t.metadata.outcome) : "",
-        action: stripMarkup(humanize(t.task_type || "Task")), why: stripMarkup(trunc(t.title || "", 170)) };
+        action: stripMarkup(humanize(t.task_type || "Task")), why: stripMarkup(trunc(t.title || "", 170)),
+        t: stripMarkup(t.title || ""), type: stripMarkup(t.task_type || ""), typeLabel: humanize(t.task_type || "Task"),
+        st: t.status === "open" ? "Open" : (t.status === "completed" ? "Done" : (t.status === "cancelled" ? "Cancelled" : humanize(t.status || ""))),
+        p: (t.priority === "high" || t.priority === "urgent") ? "high" : (t.priority === "low" ? "low" : "med"),
+        prioLabel: (t.priority === "high" || t.priority === "urgent") ? "High" : (t.priority === "low" ? "Low" : "Medium"),
+        due: t.due_at ? fmtDay(t.due_at) : "", createdLabel: fmtWhen(t.created_at),
+        completedLabel: t.completed_at ? fmtWhen(t.completed_at) : "",
+        slaLabel: "",
+        reason: stripMarkup(t.reason || ""), department: stripMarkup(t.department || ""),
+        outcomeAt: md.outcome_at ? fmtWhen(md.outcome_at) : "", outcomeBy: stripMarkup(md.outcome_by || ""),
+        apptLabel: appt ? (fmtWhen(appt.starts_at) + " · " + (pracName[appt.practitioner_id] || "") + " · " + humanize(appt.status || "")) : "" };
       if (t.status === "open") MY_TASKS.push(item);
       else if (t.status === "completed") MY_TASKS_DONE.push(item);
     });
@@ -3970,6 +4107,13 @@ function applyLiveData(data){
   if (lists.sla){
     slaMap = {};
     lists.sla.forEach(function(r){ if (r.task_id != null) slaMap[String(r.task_id)] = r; });
+  }
+  /* My Tasks detail: fill the SLA due date where the view has one
+     (owners only — physios never fetch vw_task_sla, so theirs stays ""). */
+  if (slaMap){
+    [MY_TASKS, MY_TASKS_DONE].forEach(function(list){
+      (list || []).forEach(function(it){ var r = slaMap[String(it.id)]; if (r && r.sla_due_at) it.slaLabel = fmtWhen(r.sla_due_at); });
+    });
   }
   ADMIN_ACTIONS = [];
   COMPLETED_TASKS = [];
