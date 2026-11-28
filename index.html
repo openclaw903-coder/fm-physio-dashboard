@@ -560,6 +560,8 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
 .user-card-head .uc-email{font-size:13px;color:var(--muted)}
 .user-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
 .invite-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.invite-type-row{display:flex;gap:18px;align-items:center;padding:2px 0}
+.type-opt{display:inline-flex;gap:6px;align-items:center;font-weight:600;cursor:pointer}
 @media (max-width:640px){.invite-grid{grid-template-columns:1fr}}
 .btn.confirm{background:var(--amber-bg);border-color:var(--amber-dot);color:var(--amber)}
 .user-card.owner-card{background:var(--surface-3)}
@@ -1385,12 +1387,17 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
         <div class="page-head"><div><h2>Users &amp; Access</h2><p>Invite users, choose exactly which pages each one can see, deactivate or delete accounts. Only the owner can use this page.</p></div></div>
         <div class="panel" style="margin-bottom:22px">
           <h3>Invite a user</h3>
-          <p class="nb-note">They receive an email invite, set their own password from the link, and can only see the pages you tick. No pages are ticked by default.</p>
+          <p class="nb-note">They receive an email invite, set their own password from the link, and can only see the pages you tick. No pages are ticked by default. Choose Physio first if this login is for a physio — the physio is picked once here and their My Work pages are ticked for you.</p>
           <form id="inviteForm">
+            <div class="field"><label>User type</label><div class="invite-type-row">
+              <label class="type-opt"><input type="radio" name="invite-type" value="physio" /> Physio</label>
+              <label class="type-opt"><input type="radio" name="invite-type" value="other" checked /> Other staff</label>
+            </div></div>
             <div class="invite-grid">
               <div class="field"><label for="inviteEmail">Email</label><input type="email" id="inviteEmail" autocomplete="off" required /></div>
               <div class="field"><label for="inviteName">Display name</label><input type="text" id="inviteName" autocomplete="off" required /></div>
             </div>
+            <div class="field" id="invitePhysioRow" hidden><label for="invitePhysio">Which physio?</label><select id="invitePhysio" aria-label="Which physio"><option value="">— Choose a physio —</option></select><p class="uc-physio-note">Their My Work pages (My Appointments, My Patients, My Tasks) will show only this physio’s data.</p></div>
             <div class="field"><label>Pages this user can see</label><div class="page-checks" id="invitePages"></div></div>
             <p class="users-err" id="inviteErr" role="alert"></p>
             <p class="users-ok" id="inviteOk" role="status"></p>
@@ -4535,15 +4542,47 @@ function userAllowedPages(u){
   else if (src && typeof src === "object") Object.keys(src).forEach(function(k){ if (src[k]) out.add(k); });
   return out;
 }
-function pageChecksHTML(namePrefix, allowedSet, disabled){
-  return PAGE_DEFS.map(function(p){
+function pageChecksHTML(namePrefix, allowedSet, disabled, excludeKeys){
+  return PAGE_DEFS.filter(function(p){ return !excludeKeys || excludeKeys.indexOf(p.key) === -1; }).map(function(p){
     var checked = allowedSet && allowedSet.has(p.key) ? " checked" : "";
     var dis = disabled ? " disabled" : "";
     return '<label class="page-check"><input type="checkbox" name="' + namePrefix + '" value="' + p.key + '"' + checked + dis + ' />' + esc(p.label) + '</label>';
   }).join("");
 }
 var invitePagesEl = document.getElementById("invitePages");
-if (invitePagesEl) invitePagesEl.innerHTML = pageChecksHTML("invite-page", new Set(), false);
+var MY_PAGE_KEYS = ["my-appointments", "my-patients", "my-tasks"];
+function inviteUserType(){
+  var r = document.querySelector('input[name="invite-type"]:checked');
+  return r ? r.value : "other";
+}
+function refreshInvitePhysioOptions(){
+  var sel = document.getElementById("invitePhysio"); if (!sel) return;
+  var cur = sel.value;
+  sel.innerHTML = '<option value="">— Choose a physio —</option>' + practitionerOptions(cur === "" ? null : cur);
+}
+/* The invite form is user-type-first. Physio: the physio dropdown shows,
+   only the 3 My Work pages are ticked, and the AI Agents checkbox is not
+   offered at all (a physio must never be offered the AI page). Other
+   staff: today's behaviour — all 19 pages, none ticked. Switching type
+   resets the physio selection and the ticks to that type's defaults; the
+   typed email and name are separate inputs, so they are kept. */
+function renderInvitePages(){
+  var type = inviteUserType();
+  var row = document.getElementById("invitePhysioRow");
+  if (row) row.hidden = (type !== "physio");
+  if (type === "physio"){
+    var sel = document.getElementById("invitePhysio");
+    if (sel) sel.value = "";
+    refreshInvitePhysioOptions();
+    if (invitePagesEl) invitePagesEl.innerHTML = pageChecksHTML("invite-page", new Set(MY_PAGE_KEYS), false, ["ai"]);
+  } else {
+    if (invitePagesEl) invitePagesEl.innerHTML = pageChecksHTML("invite-page", new Set(), false);
+  }
+}
+if (invitePagesEl) renderInvitePages();
+document.querySelectorAll('input[name="invite-type"]').forEach(function(r){
+  r.addEventListener("change", renderInvitePages);
+});
 
 var usersLoadedOnce = false;
 /* Practitioner list for the per-user Physio dropdown. The live lists
@@ -4554,8 +4593,42 @@ function practitionerList(){
   if (typeof LIVE !== "undefined" && LIVE && LIVE.lists && LIVE.lists.practitioners && LIVE.lists.practitioners.length) return LIVE.lists.practitioners;
   return PRACTITIONERS_CACHE;
 }
+/* Distinct practitioner_ids in appointments, fetched once. Used only
+   as a safety net: ids in appointments but missing from
+   practicehub_practitioners still appear in the physio dropdowns. */
+var APPT_PRACT_IDS_CACHE = null;
+function loadApptPractitionerIds(){
+  if (APPT_PRACT_IDS_CACHE) return Promise.resolve(APPT_PRACT_IDS_CACHE);
+  if (!sb) return Promise.resolve([]);
+  var known = practitionerList().map(function(p){ return p.practitioner_id; });
+  if (!known.length) return Promise.resolve([]);
+  var excl = "(" + known.join(",") + ")";
+  return sb.from("appointments").select("practitioner_id").not("practitioner_id", "in", excl).limit(50).then(function(r){
+    if (r.error || !r.data){ APPT_PRACT_IDS_CACHE = []; return []; }
+    var seen = {}, out = [];
+    r.data.forEach(function(row){
+      var id = row.practitioner_id; if (id == null) return;
+      var k = String(id); if (!seen[k]){ seen[k] = true; out.push(Number(id)); }
+    });
+    APPT_PRACT_IDS_CACHE = out;
+    return out;
+  }).catch(function(){ APPT_PRACT_IDS_CACHE = []; return []; });
+}
+/* Physios for the dropdowns (invite form and user cards): active
+   practicehub_practitioners, plus any practitioner_id found in
+   appointments but missing from that table (labelled with its id).
+   Today both sources agree (6 = 6), so the safety net adds nothing. */
+function mergedPractitioners(){
+  var base = practitionerList().filter(function(p){ return p.active !== false; });
+  var have = {};
+  base.forEach(function(p){ have[String(p.practitioner_id)] = true; });
+  var extra = (APPT_PRACT_IDS_CACHE || []).filter(function(id){ return !have[String(id)]; }).map(function(id){
+    return { practitioner_id: Number(id), name: "Practitioner " + id + " (from appointments)", active: true };
+  });
+  return base.concat(extra);
+}
 function practitionerOptions(selectedId){
-  return practitionerList().filter(function(p){ return p.active !== false; }).map(function(p){
+  return mergedPractitioners().map(function(p){
     var sel = (selectedId != null && String(p.practitioner_id) === String(selectedId)) ? " selected" : "";
     return '<option value="' + p.practitioner_id + '"' + sel + '>' + esc(p.name) + '</option>';
   }).join("");
@@ -4592,9 +4665,14 @@ function renderUsersList(users){
       + '<button class="btn small" type="button" data-pages-all="' + idx + '">Tick all</button>'
       + '<button class="btn small" type="button" data-pages-none="' + idx + '">Clear all</button>'
       + '</div>';
+    var physioNote = "This physio’s own pages (My Appointments, My Patients, My Tasks) show only this physio’s data. Leave as None for staff who are not a physio.";
+    if (u.practitioner_id != null){
+      var linkedKnown = mergedPractitioners().some(function(p){ return String(p.practitioner_id) === String(u.practitioner_id); });
+      if (!linkedKnown) physioNote = "This physio is no longer active — set to None or pick another.";
+    }
     var physioRow = '<div class="field" style="margin:12px 0 4px"><label>Physio linked to this account</label>'
       + '<select class="physio-select" data-user-physio="' + idx + '" aria-label="Physio for this user"><option value="">— None —</option>' + practitionerOptions(u.practitioner_id) + '</select>'
-      + '<p class="uc-physio-note" data-user-physio-note>This physio’s own pages (My Appointments, My Patients, My Tasks) show only this physio’s data. Leave as None for staff who are not a physio.</p></div>';
+      + '<p class="uc-physio-note" data-user-physio-note>' + physioNote + '</p></div>';
     return '<div class="user-card" data-user-idx="' + idx + '" data-user-id="' + esc(String(uid)) + '" data-user-state="' + (isActive ? "1" : "0") + '">'
       + head
       + '<p class="uc-pages-line">Currently can see ' + allowed.size + ' of ' + ALL_PAGE_KEYS.length + ' pages. Untick a page to remove access, then Save pages.</p>'
@@ -4693,14 +4771,16 @@ function loadUsersList(){
   adminFn({ action: "list_users" }).then(function(data){
     var users = data.users || data.data || (Array.isArray(data) ? data : []);
     usersLoadedOnce = true;
-    function done(){ renderUsersList(users); }
+    function done(){ renderUsersList(users); refreshInvitePhysioOptions(); }
     /* The Physio dropdown needs the practitioner list; fetch it on
-       demand when the live load has not provided it yet. */
-    if (practitionerList().length){ done(); return; }
+       demand when the live load has not provided it yet. The safety-net
+       ids (appointments) are fetched first so the card note and the
+       invite dropdown see the full merged list. */
+    if (practitionerList().length){ loadApptPractitionerIds().then(done); return; }
     if (!sb){ done(); return; }
     sb.from("practicehub_practitioners").select("practitioner_id,name,active").then(function(r){
       if (!r.error && r.data) PRACTITIONERS_CACHE = r.data;
-      done();
+      loadApptPractitionerIds().then(done);
     }).catch(function(){ done(); });
   }).catch(function(e){
     if (err) err.textContent = (e && e.message) || "Could not load users — try again.";
@@ -4722,13 +4802,51 @@ if (inviteForm) inviteForm.addEventListener("submit", function(e){
   inviteForm.querySelectorAll('input[name="invite-page"]:checked').forEach(function(c){ pages.push(c.value); });
   if (!email){ err.textContent = "Enter the user's email."; return; }
   if (!name){ err.textContent = "Enter the user's display name."; return; }
+  var type = inviteUserType();
+  var physioId = null;
+  if (type === "physio"){
+    var physioSel = document.getElementById("invitePhysio");
+    physioId = (physioSel && physioSel.value !== "") ? parseInt(physioSel.value, 10) : null;
+    if (physioId == null){ err.textContent = "Choose which physio this login is for."; return; }
+  }
   btn.disabled = true; btn.textContent = "Sending invite…";
-  adminFn({ action: "invite", email: email, display_name: name, pages: pages }).then(function(){
-    btn.disabled = false; btn.textContent = "Send invite";
-    ok.textContent = "Invite sent to " + email + " — they set their own password from the email link.";
-    inviteForm.reset();
-    if (invitePagesEl) invitePagesEl.innerHTML = pageChecksHTML("invite-page", new Set(), false);
-    loadUsersList();
+  adminFn({ action: "invite", email: email, display_name: name, pages: pages }).then(function(res){
+    function inviteDone(){
+      btn.disabled = false; btn.textContent = "Send invite";
+      ok.textContent = "Invite sent to " + email + " — they set their own password from the email link.";
+      inviteForm.reset();
+      renderInvitePages();
+      loadUsersList();
+    }
+    /* A physio invite also saves the mapping in the same flow. If the
+       mapping fails, the invite itself still went out — say so plainly
+       and point at the user card instead of pretending it saved. */
+    function mapFailed(msg){
+      btn.disabled = false; btn.textContent = "Send invite";
+      err.textContent = "Invite sent to " + email + ", but the physio could not be linked (" + msg + "). Set it from the user card below.";
+      inviteForm.reset();
+      renderInvitePages();
+      loadUsersList();
+    }
+    function doMap(id){
+      adminFn({ action: "set_practitioner", user_id: id, practitioner_id: physioId }).then(function(){
+        inviteDone();
+      }).catch(function(mex){
+        mapFailed((mex && mex.message) || "could not save the physio link");
+      });
+    }
+    if (type !== "physio"){ inviteDone(); return; }
+    var uid = res && (res.user_id || res.userId);
+    if (uid){ doMap(uid); return; }
+    /* Fallback: the invite response carried no user id — find the new
+       user in the refreshed list by email, then link the physio. */
+    adminFn({ action: "list_users" }).then(function(data){
+      var users = data.users || data.data || (Array.isArray(data) ? data : []);
+      var found = null;
+      users.forEach(function(u){ if (u.email && String(u.email).toLowerCase() === email.toLowerCase()) found = u; });
+      var fid = found && (found.user_id || found.id);
+      if (fid) doMap(fid); else mapFailed("could not find the new user");
+    }).catch(function(){ mapFailed("could not find the new user"); });
   }).catch(function(ex){
     btn.disabled = false; btn.textContent = "Send invite";
     err.textContent = (ex && ex.message) || "Could not send the invite — try again.";
