@@ -1008,8 +1008,8 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
           </select>
         </div>
         <div class="list-card">
-          <div class="list-head" style="grid-template-columns:1.5fr 1.1fr 1.2fr .8fr">
-            <span>Patient</span><span>Starts</span><span>Physio</span><span style="text-align:right">Status</span>
+          <div class="list-head" style="grid-template-columns:1.4fr 1fr 1.1fr 1.2fr .7fr">
+            <span>Patient</span><span>Starts</span><span>Physio</span><span>Reason</span><span style="text-align:right">Status</span>
           </div>
           <div id="apptList"></div>
           <div class="load-more-row" id="apptMoreRow" style="display:none"><button class="btn" id="apptMoreBtn" type="button">Load more</button></div>
@@ -2142,6 +2142,15 @@ renderReferrals();
 /* ================= APPOINTMENTS LIST ================= */
 var statusTag = { processed:'<span class="tag green">Processed</span>', pending:'<span class="tag amber">Pending</span>', cancelled:'<span class="tag red">Cancelled</span>', missed:'<span class="tag amber">No-show</span>' };
 var apptShowN = 120;
+/* Appointment reason cell — shared rule for the Appointments and My
+   Appointments lists. Cancelled and missed rows carry a free-text
+   cancel_reason in Supabase (or nothing); processed/pending rows have
+   no reason. Never invents a reason or a category: the text is shown
+   exactly as stored. */
+function apptReasonCell(status, reason){
+  if (status === "cancelled" || status === "missed") return reason ? escHtml(reason) : "No reason given";
+  return "—";
+}
 function renderAppts(more){
   if(!more) apptShowN = 120;
   var st = document.querySelector("#apptPills .pill.active").getAttribute("data-appt");
@@ -2172,9 +2181,13 @@ function renderAppts(more){
     var p = a.pid ? PATIENTS[a.pid] : null;
     var nm = p ? escHtml(p.name) : "No contact linked";
     var attrs = p ? ' clickable" data-patient="'+a.pid+'"' : '"';
-    html += '<div class="list-row'+attrs+' style="grid-template-columns:1.5fr 1.1fr 1.2fr .8fr">'
+    /* Reason column — shared rule (apptReasonCell): cancelled and missed
+       rows show the stored reason or "No reason given"; processed and
+       pending rows show "—". */
+    var reasonCell = apptReasonCell(a.status, a.reason);
+    html += '<div class="list-row'+attrs+' style="grid-template-columns:1.4fr 1fr 1.1fr 1.2fr .7fr">'
       + '<div class="cell-main">'+nm+'</div><div class="cell-sub">'+a.label+'<br>'+a.type+' · '+a.loc+'</div>'
-      + '<div class="cell-sub">'+escHtml(a.physio)+'</div><div style="text-align:right">'+statusTag[a.status]+'</div></div>';
+      + '<div class="cell-sub">'+escHtml(a.physio)+'</div><div class="cell-sub">'+reasonCell+'</div><div style="text-align:right">'+statusTag[a.status]+'</div></div>';
   });
   wrap.innerHTML = html;
   document.getElementById("apptEmpty").classList.toggle("hidden-row", shown>0);
@@ -4621,9 +4634,13 @@ function renderMyAppts(){
     return;
   }
   if (empty) empty.classList.add("hidden-row");
-  rows.innerHTML = list.map(function(a){
+  /* Reason column — same rule as the clinic-wide Appointments list
+     (apptReasonCell): cancelled/missed show the stored reason or
+     "No reason given", processed/pending show "—". */
+  rows.innerHTML = '<div class="list-head" style="grid-template-columns:1.4fr 1.1fr 1.2fr .7fr"><span>Patient</span><span>When</span><span>Reason</span><span style="text-align:right">Status</span></div>'
+    + list.map(function(a){
     var tag = a.status === "processed" ? "green" : (a.status === "cancelled" ? "red" : (a.status === "missed" ? "amber" : "blue"));
-    return '<div class="list-row clickable" data-my-appt="' + a.id + '" role="button" tabindex="0" title="Open appointment detail" style="grid-template-columns:1.5fr 1.2fr .8fr"><div class="cell-main">' + escHtml(a.patient) + '</div><div class="cell-sub">' + escHtml(a.label) + '</div><div style="text-align:right"><span class="tag ' + tag + '">' + escHtml(humanize(a.status)) + '</span></div></div>';
+    return '<div class="list-row clickable" data-my-appt="' + a.id + '" role="button" tabindex="0" title="Open appointment detail" style="grid-template-columns:1.4fr 1.1fr 1.2fr .7fr"><div class="cell-main">' + escHtml(a.patient) + '</div><div class="cell-sub">' + escHtml(a.label) + '</div><div class="cell-sub">' + apptReasonCell(a.status, a.cancelReason) + '</div><div style="text-align:right"><span class="tag ' + tag + '">' + escHtml(humanize(a.status)) + '</span></div></div>';
   }).join("");
   rows.querySelectorAll("[data-my-appt]").forEach(function(el){
     el.addEventListener("click", function(){ openMyApptDetail(el.getAttribute("data-my-appt")); });
@@ -4960,7 +4977,12 @@ function applyLiveData(data){
   /* Appointments */
   APPOINTMENTS = (lists.appts || []).map(function(a){
     return { pid: pidOf(a.contact_id), dateISO: (a.starts_at || "").slice(0,10), label: fmtWhen(a.starts_at),
-      physio: pracName[a.practitioner_id] || "\u2014", status: a.status || "pending", type: "Appointment", loc: "Liverpool clinic" };
+      physio: pracName[a.practitioner_id] || "\u2014", status: a.status || "pending", type: "Appointment", loc: "Liverpool clinic",
+      /* Stored cancel_reason carried through raw (empty when none) — the
+         Appointments list renders it for cancelled rows only. Free text;
+         cancel_reason_category is null on every appointment, so no
+         category is ever derived or shown. */
+      reason: stripMarkup(a.cancel_reason || "") };
   });
 
   /* Conversations + enquiries from interactions */
@@ -5293,7 +5315,7 @@ function applyLiveData(data){
     var acts = [];
     tasks.forEach(function(t){ acts.push({ ts: t.created_at, dot: t.priority === "urgent" || t.priority === "high" ? "red" : "grey", title: "Task \u2014 " + stripMarkup(humanize(t.task_type || "")), brief: stripMarkup(trunc(t.title || "", 130)), detail: "Status: " + stripMarkup(t.status || "") + " \u00b7 Priority: " + stripMarkup(t.priority || "") + " \u00b7 Created " + fmtDay(t.created_at) + "." }); });
     ints.forEach(function(x){ acts.push({ ts: x.created_at, dot: outcomeTag(x.outcome) === "red" ? "red" : (outcomeTag(x.outcome) === "green" ? "green" : "violet"), title: "Interaction \u2014 " + stripMarkup(humanize(x.outcome || "")), brief: stripMarkup(trunc(x.summary || "", 130)), detail: stripMarkup(x.summary || ""), convId: "int-" + x.id, conv: null }); });
-    appts.forEach(function(a){ acts.push({ ts: a.starts_at, dot: a.status === "cancelled" ? "red" : (a.status === "missed" ? "amber" : "blue"), title: "Appointment \u2014 " + stripMarkup(humanize(a.status || "")), brief: fmtWhen(a.starts_at) + " \u00b7 " + (pracName[a.practitioner_id] || ""), detail: "Status: " + stripMarkup(a.status || "") + "." }); });
+    appts.forEach(function(a){ acts.push({ ts: a.starts_at, dot: a.status === "cancelled" ? "red" : (a.status === "missed" ? "amber" : "blue"), title: "Appointment \u2014 " + stripMarkup(humanize(a.status || "")), brief: fmtWhen(a.starts_at) + " \u00b7 " + (pracName[a.practitioner_id] || ""), reason: (a.status === "cancelled" || a.status === "missed") ? stripMarkup(a.cancel_reason || "No reason given") : "", detail: "Status: " + stripMarkup(a.status || "") + "." }); });
     acts.sort(function(p, q){ return String(q.ts) < String(p.ts) ? -1 : 1; });
     var lastTs = acts.length ? acts[0].ts : c.created_at;
     var nm = contactName[c.id] || "Patient"; var nmRaw = cleanName(((c.first_name || "") + " " + (c.last_name || "")).trim()) || "Patient";
@@ -5303,7 +5325,7 @@ function applyLiveData(data){
       ghl: cleanName(c.ghl_contact_id || ""), ph: cleanName(c.practicehub_patient_id || ""),
       appts: appts.length, interactions: ints.length, openTasks: tasks.filter(function(t){ return t.status === "open"; }).length,
       last: fmtDay(lastTs), dnc: !!c.dnc, takeover: !!c.human_takeover, next: "\u2014",
-      history: acts.length ? acts.map(function(h){ return { d: fmtWhen(h.ts), dot: h.dot, title: h.title, brief: h.brief, detail: h.detail, convId: h.convId || null }; })
+      history: acts.length ? acts.map(function(h){ return { d: fmtWhen(h.ts), dot: h.dot, title: h.title, brief: h.brief, detail: h.detail, reason: h.reason || "", convId: h.convId || null }; })
         : [{ d: fmtWhen(c.created_at), dot: "grey", title: "Contact created", brief: "No appointments, interactions or tasks for this contact.", detail: "" }] };
     newLast[id] = (lastTs || "").slice(0,10);
     newFirst[id] = appts.length ? appts.map(function(a){ return (a.starts_at || "").slice(0,10); }).sort()[0] : (c.created_at || "").slice(0,10);
