@@ -1263,7 +1263,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
           <div class="kpi"><div class="k-label">Total cost</div><div class="k-value num" style="font-size:25px;margin-top:13px">No data yet</div><div class="k-sub">Retell/Vapi billing</div></div>
           <div class="kpi"><div class="k-label">Minutes used</div><div class="k-value num" style="font-size:25px;margin-top:13px">No data yet</div><div class="k-sub">No duration data yet</div></div>
         </div>
-        <div class="agent-grid">
+        <div class="agent-grid" id="aiAgentGrid">
           <div class="agent-card">
             <div class="agent-top">
               <span class="agent-ic voice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span>
@@ -1304,6 +1304,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
             <div class="ai-booked-wrap" id="aiChatBookedWrap"></div>
           </div>
         </div>
+        <div id="aiBookedDetail" hidden></div>
       </section>
 
       <!-- ======== UNPROCESSED ======== -->
@@ -1766,7 +1767,7 @@ function showPage(id, restoreY){
   closeSidebar();
   window.scrollTo({top:(typeof restoreY==="number" ? restoreY : 0)});
 }
-document.querySelectorAll(".nav-item").forEach(function(b){ b.addEventListener("click", function(){ var pg = b.getAttribute("data-page"); try { if (pg === "my-appointments") closeMyApptDetail(); if (pg === "my-tasks") closeMyTaskDetail(); if (pg === "admin-today") closeAdminTaskDetail(); } catch(e){} showPage(pg); resetStatusFilters(); rerenderPageFilters(pg); }); });
+document.querySelectorAll(".nav-item").forEach(function(b){ b.addEventListener("click", function(){ var pg = b.getAttribute("data-page"); try { if (pg === "my-appointments") closeMyApptDetail(); if (pg === "my-tasks") closeMyTaskDetail(); if (pg === "admin-today") closeAdminTaskDetail(); if (pg === "ai") closeAiBookedDetail(); } catch(e){} showPage(pg); resetStatusFilters(); rerenderPageFilters(pg); }); });
 document.querySelectorAll("[data-goto]").forEach(function(b){ b.addEventListener("click", function(){ var pg = b.getAttribute("data-goto"); showPage(pg); resetStatusFilters(); rerenderPageFilters(pg); }); });
 /* Urgent-list physio dropdown (Admin Today) — bound once; renderAdmin
    reads its value each render, and resetStatusFilters restores "all". */
@@ -1907,6 +1908,65 @@ function openMyApptDetail(apptId){
 function closeMyApptDetail(){
   var det = document.getElementById("myApptDetail"); if (det){ det.hidden = true; det.innerHTML = ""; }
   var card = document.getElementById("myApptCard"); if (card) card.hidden = !ACCESS.isOwner && ACCESS.practitionerId == null;
+  window.scrollTo({top:0});
+}
+/* AI Agents booked-patients full view — opened from a card's
+   "Booked patients (N)" button. Same in-page detail pattern as
+   openMyApptDetail: the agent grid hides, the full list shows with a
+   Back button. Rows come from the AI_BOOKED global, published by
+   renderAiBookedLists in the live-data script from the same in-range
+   rows as the card counts, so the list can never disagree with the
+   Booked number. Newest-first; Load more in batches of 20 so a long
+   list stays usable. The time shown is the booking event time (the
+   interaction's created_at), not the appointment time. */
+var AI_BOOKED_AGENTS = {
+  "in": { name: "Inbound Calling", sub: "After-hours calls" },
+  out: { name: "Outbound Calling", sub: "Reactivation & follow-up calls" },
+  chat: { name: "Inbound Chat", sub: "Website chat" }
+};
+var AI_BOOKED_SHOW_N = 20;
+function renderAiBookedDetail(key){
+  var det = document.getElementById("aiBookedDetail"); if (!det) return;
+  var meta = AI_BOOKED_AGENTS[key] || { name: "AI Agent", sub: "" };
+  var rows = (window.AI_BOOKED && window.AI_BOOKED[key]) || [];
+  var shown = Math.min(AI_BOOKED_SHOW_N, rows.length);
+  var html = '<button class="btn" id="aiBookedDetailBack" style="margin-bottom:16px">← Back to AI Agents</button>'
+    + '<div class="panel"><h3>' + escHtml(meta.name) + ' — Booked patients (' + rows.length + ')</h3>'
+    + '<div class="cell-sub" style="margin-bottom:8px">' + escHtml(meta.sub) + ' · ' + escHtml(rangeText()) + ' · Booked time is the booking event time, not the appointment time.</div>';
+  if (!rows.length){
+    html += '<div class="empty-note">No bookings in this date range.</div>';
+  } else {
+    html += '<div class="ai-booked-list">' + rows.slice(0, shown).map(function(e){
+      var p = enqPatient(e.pid);
+      var name = e.pid
+        ? '<button class="link-btn cell-main" type="button" style="padding:0;min-height:0;text-align:left" data-patient-link="' + e.pid + '">' + escHtml(p.name) + '</button>'
+        : escHtml(p.name);
+      return '<div class="ai-booked-row"><div>' + name + '</div><div class="cell-sub" style="white-space:nowrap">Booked ' + escHtml(e.when || "") + '</div></div>';
+    }).join("") + '</div>';
+    if (rows.length > shown){
+      html += '<div style="display:flex;justify-content:center;margin-top:12px"><button class="btn" id="aiBookedMoreBtn" type="button">Load more · ' + (rows.length - shown) + ' more</button></div>';
+    }
+  }
+  html += '</div>';
+  det.innerHTML = html;
+  document.getElementById("aiBookedDetailBack").addEventListener("click", closeAiBookedDetail);
+  var mb = document.getElementById("aiBookedMoreBtn");
+  if (mb) mb.addEventListener("click", function(){ AI_BOOKED_SHOW_N += 20; renderAiBookedDetail(key); });
+  bindPatientClicks(det);
+}
+function openAiBookedDetail(key){
+  var grid = document.getElementById("aiAgentGrid"); if (grid) grid.hidden = true;
+  var det = document.getElementById("aiBookedDetail"); if (!det) return;
+  window.AI_BOOKED_OPEN = key;
+  AI_BOOKED_SHOW_N = 20;
+  renderAiBookedDetail(key);
+  det.hidden = false;
+  window.scrollTo({top:0});
+}
+function closeAiBookedDetail(){
+  window.AI_BOOKED_OPEN = null;
+  var det = document.getElementById("aiBookedDetail"); if (det){ det.hidden = true; det.innerHTML = ""; }
+  var grid = document.getElementById("aiAgentGrid"); if (grid) grid.hidden = false;
   window.scrollTo({top:0});
 }
 /* My Tasks detail — reuses the patient-file task detail rows. Reads
@@ -5612,41 +5672,38 @@ function updateLiveTotals(counts, lists){
      as the counts above (ENQUIRIES, in the current date range), so the
      list can never disagree with the Booked number on the card. The time
      shown is the booking event time (the interaction's created_at), not
-     the appointment time — interactions do not store the appointment. */
-  var AI_LIST_OPEN = { "in": false, out: false, chat: false };
-  var aiListBound = false;
+     the appointment time — interactions do not store the appointment.
+     Each card shows a "Booked patients (N)" button that opens a
+     dedicated full list view (openAiBookedDetail, script 2); the rows
+     are published on window.AI_BOOKED so the detail view reads the same
+     data, and a re-render after a date change refreshes an open view. */
   function aiBookedRows(srcKeys){
     return ENQUIRIES.filter(function(e){ return srcKeys.indexOf(e.src) !== -1 && inRange(e.date) && e.booked; })
       .slice().sort(function(a, b){ var x = a.ts || "", y = b.ts || ""; return x < y ? 1 : (x > y ? -1 : 0); });
   }
   function renderAiBookedLists(){
+    window.AI_BOOKED = window.AI_BOOKED || {};
     [["in", ["afterhours"], "aiInBookedWrap"], ["out", ["reactivation", "mastl"], "aiOutBookedWrap"], ["chat", ["chat"], "aiChatBookedWrap"]].forEach(function(cfg){
       var key = cfg[0], wrap = document.getElementById(cfg[2]); if (!wrap) return;
       var rows = aiBookedRows(cfg[1]);
-      var open = !!AI_LIST_OPEN[key];
-      var html = '<button class="link-btn ai-booked-toggle" type="button" data-ai-list="' + key + '">Booked patients (' + rows.length + ') ' + (open ? "▾" : "▸") + '</button>';
-      if (open){
-        html += rows.length ? '<div class="ai-booked-list">' + rows.map(function(e){
-          var p = enqPatient(e.pid);
-          var name = e.pid
-            ? '<button class="link-btn cell-main" type="button" style="padding:0;min-height:0;text-align:left" data-patient-link="' + e.pid + '">' + escHtml(p.name) + '</button>'
-            : escHtml(p.name);
-          return '<div class="ai-booked-row"><div>' + name + '</div><div class="cell-sub" style="white-space:nowrap">Booked ' + escHtml(e.when || e.date) + '</div></div>';
-        }).join("") + '</div>' : '<div class="empty-note">No bookings in this date range.</div>';
-      }
-      wrap.innerHTML = html;
+      window.AI_BOOKED[key] = rows.map(function(e){ return { pid: e.pid, when: e.when || e.date }; });
+      wrap.innerHTML = '<button class="link-btn ai-booked-toggle" type="button" data-ai-list="' + key + '">Booked patients (' + rows.length + ') ▸</button>';
     });
     bindPatientClicks(document.getElementById("page-ai"));
-    if (!aiListBound){
-      aiListBound = true;
+    /* Window-level guard: this function re-runs on every data refresh,
+       so a closure-local flag would add a duplicate document listener
+       each time. */
+    if (!window.aiBookedListBound){
+      window.aiBookedListBound = true;
       document.addEventListener("click", function(ev){
         var b = ev.target && ev.target.closest ? ev.target.closest("[data-ai-list]") : null;
         if (!b) return;
-        var k = b.getAttribute("data-ai-list");
-        AI_LIST_OPEN[k] = !AI_LIST_OPEN[k];
-        renderAiBookedLists();
+        openAiBookedDetail(b.getAttribute("data-ai-list"));
       });
     }
+    /* If the full list view is open (date change / auto-refresh), re-render
+       it from the fresh rows so it never disagrees with the card count. */
+    if (window.AI_BOOKED_OPEN && typeof renderAiBookedDetail === "function") renderAiBookedDetail(window.AI_BOOKED_OPEN);
   }
   function agentStats(srcKeys){
     /* Same rows and same "booked" definition as Enquiries & Leads:
