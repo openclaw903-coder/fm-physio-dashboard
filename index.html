@@ -562,6 +562,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
 .user-card-head .uc-main{flex:1;min-width:200px}
 .user-card-head .uc-name{font-weight:800;font-size:15.5px}
 .user-card-head .uc-email{font-size:13px;color:var(--muted)}
+.uc-added{font-size:12.5px;color:var(--muted);margin-top:2px}
 .user-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
 .invite-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
 .invite-type-row{display:flex;gap:18px;align-items:center;padding:2px 0}
@@ -2984,6 +2985,7 @@ function applyDateFilter(){
   renderCancellations();
   renderComplaints();
   renderDischarged();
+  if (typeof window.refreshUsersDateFilter === "function") window.refreshUsersDateFilter();
 }
 document.querySelectorAll("#datePills .pill").forEach(function(b){
   b.addEventListener("click", function(){
@@ -4850,6 +4852,7 @@ if (invitePagesNoneBtn) invitePagesNoneBtn.addEventListener("click", function(){
 });
 
 var usersLoadedOnce = false;
+var lastUsersList = null; /* Last users array from list_users, so a pill change can re-filter without a refetch. */
 /* Practitioner list for the per-user Physio dropdown. The live lists
    carry it once fetchLive has run; otherwise the Users page fetches it
    on demand (loadUsersList) and caches it here. */
@@ -4901,7 +4904,32 @@ function practitionerOptions(selectedId){
 function renderUsersList(users){
   var wrap = document.getElementById("usersList"); if (!wrap) return;
   if (!users.length){ wrap.innerHTML = '<div class="empty-note">No users yet.</div>'; return; }
-  wrap.innerHTML = users.map(function(u, idx){
+  /* Date filter: the global date pills filter STAFF cards by their
+     added-on date (admin_users.created_at, Europe/London date). The
+     owner card always shows. inRange/rangeBounds/rangeText/fmtISO are
+     globals from the first script; londonISO is defined in this script.
+     A user with no created_at is never hidden (inRange("") is true). */
+  var dateB = rangeBounds();
+  var staffShown = 0, staffTotal = 0;
+  users = users.filter(function(u){
+    if (u.role === "owner") return true;
+    staffTotal++;
+    var ok = inRange(londonISO(u.created_at || ""));
+    if (ok) staffShown++;
+    return ok;
+  });
+  var noteHtml = "";
+  if (dateB){
+    var words = DATE_STATE.preset === "today" ? "added today"
+      : DATE_STATE.preset === "yesterday" ? "added yesterday"
+      : DATE_STATE.preset === "7" ? "added in the last 7 days"
+      : DATE_STATE.preset === "30" ? "added in the last 30 days"
+      : "added " + rangeText();
+    noteHtml = '<p class="uc-pages-line" style="margin-bottom:10px">Showing users ' + words + '.</p>';
+  }
+  var emptyHtml = (dateB && staffTotal > 0 && staffShown === 0)
+    ? '<div class="empty-note">No users added in this period.</div>' : "";
+  wrap.innerHTML = noteHtml + emptyHtml + users.map(function(u, idx){
     var uid = u.id || u.user_id || "";
     var isOwner = (u.role === "owner");
     var activeVal = (u.active != null ? u.active : (u.is_active != null ? u.is_active : true));
@@ -4915,7 +4943,9 @@ function renderUsersList(users){
     var email = esc(u.email || "");
     var roleTag = isOwner ? '<span class="tag green">Owner</span>' : '<span class="tag blue">User</span>';
     var statusTag = isActive ? '<span class="tag green">Active</span>' : '<span class="tag red">Inactive</span>';
-    var head = '<div class="user-card-head"><div class="uc-main"><div class="uc-name">' + name + '</div><div class="uc-email">' + email + '</div></div>' + roleTag + " " + statusTag + '</div>';
+    var addedISO = londonISO(u.created_at || "");
+    var addedLine = addedISO ? '<div class="uc-added">Added on ' + esc(fmtISO(addedISO)) + '</div>' : "";
+    var head = '<div class="user-card-head"><div class="uc-main"><div class="uc-name">' + name + '</div><div class="uc-email">' + email + '</div>' + addedLine + '</div>' + roleTag + " " + statusTag + '</div>';
     if (isOwner){
       /* Owner card is a summary only — no tick grid. The full, locked
          grid looked exactly like the editor for the user below it,
@@ -5040,7 +5070,7 @@ function loadUsersList(){
   adminFn({ action: "list_users" }).then(function(data){
     var users = data.users || data.data || (Array.isArray(data) ? data : []);
     usersLoadedOnce = true;
-    function done(){ renderUsersList(users); refreshInvitePhysioOptions(); }
+    function done(){ lastUsersList = users; renderUsersList(users); refreshInvitePhysioOptions(); }
     /* The Physio dropdown needs the practitioner list; fetch it on
        demand when the live load has not provided it yet. The safety-net
        ids (appointments) are fetched first so the card note and the
@@ -5056,6 +5086,11 @@ function loadUsersList(){
     if (wrap) wrap.innerHTML = '<div class="empty-note">Could not load users.</div>';
   });
 }
+/* Global bridge so the date pills (first script, applyDateFilter) can
+   re-filter the Users list. renderUsersList lives inside this IIFE and
+   is not callable from the first script — same cross-scope trap as the
+   My Appointments nav bug. No-ops until the list has loaded once. */
+window.refreshUsersDateFilter = function(){ if (usersLoadedOnce && lastUsersList) renderUsersList(lastUsersList); };
 var usersNavBtn = document.getElementById("navUsers");
 if (usersNavBtn) usersNavBtn.addEventListener("click", function(){ if (ACCESS.isOwner) loadUsersList(); });
 var usersRefreshBtn = document.getElementById("usersRefresh");
