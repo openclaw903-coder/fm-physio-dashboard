@@ -397,6 +397,7 @@ h1,h2,h3{font-family:"Fraunces",Georgia,serif;font-weight:600;line-height:1.15;m
 /* Admin Today */
 .kpis-5{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px}
 .kpis-3{grid-template-columns:repeat(3,1fr)}
+.kpis-2{grid-template-columns:repeat(2,1fr)}
 @media (max-width:1080px){.kpis-5{grid-template-columns:repeat(2,1fr)}.kpis-3{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:560px){.kpis-5,.kpis-3{grid-template-columns:1fr 1fr}}
 .kpis-6{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:22px}
@@ -775,9 +776,9 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
 
       <div class="nav-group">
         <div class="nav-group-label">System</div>
-        <button class="nav-item" data-page="ai"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M8 4h8"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/><path d="M9 17h6"/></svg>AI Agents</button>
-        
         <button class="nav-item" data-page="dnc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91"/><path d="m2 2 20 20"/></svg>Do Not Call<span class="nav-badge" id="liveBadgeDnc">—</span></button>
+        
+        <button class="nav-item" data-page="ai"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M8 4h8"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/><path d="M9 17h6"/></svg>AI Agents</button>
         <button class="nav-item" data-page="users" id="navUsers" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>Users &amp; Access</button>
       </div>
     </nav>
@@ -935,6 +936,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
             <div class="row-item" data-goto="ai"><div class="row-main"><div class="row-title">Outbound Calling</div><div class="row-sub">Reactivation &amp; follow-up calls</div></div><div class="row-side"><div class="t num ovAiOut">—</div></div></div>
             <div class="row-item" data-goto="ai"><div class="row-main"><div class="row-title">Inbound Chat</div><div class="row-sub">Website chat</div></div><div class="row-side"><div class="t num" id="ovAiChat">—</div></div></div>
           </div>
+          <div class="cell-sub" id="ovAiCostTotal" style="margin-top:10px">AI call costs · —</div>
         </div>
       </section>
 
@@ -1260,8 +1262,8 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
         </div>
         <div class="kpis kpis-3">
           <div class="kpi"><div class="k-label">Total interactions</div><div class="k-value num" id="kpiInteractions2">—</div><div class="k-sub">All AI agents</div></div>
-          <div class="kpi"><div class="k-label">Total cost</div><div class="k-value num" style="font-size:25px;margin-top:13px">No data yet</div><div class="k-sub">Retell/Vapi billing</div></div>
-          <div class="kpi"><div class="k-label">Minutes used</div><div class="k-value num" style="font-size:25px;margin-top:13px">No data yet</div><div class="k-sub">No duration data yet</div></div>
+          <div class="kpi"><div class="k-label">Total cost</div><div class="k-value num" id="aiTotalCost" style="font-size:25px;margin-top:13px">No data yet</div><div class="k-sub" id="aiCostSub">Retell/Vapi billing</div></div>
+          <div class="kpi"><div class="k-label">Minutes used</div><div class="k-value num" id="aiTotalMinutes" style="font-size:25px;margin-top:13px">No data yet</div><div class="k-sub" id="aiMinutesSub">No duration data yet</div></div>
         </div>
         <div class="agent-grid" id="aiAgentGrid">
           <div class="agent-card">
@@ -1273,7 +1275,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
               <div class="as"><div class="v num" id="aiInBooked">—</div><div class="l">Booked</div></div>
               <div class="as"><div class="v num" id="aiInUnbooked">—</div><div class="l">Unbooked</div></div>
               <div class="as"><div class="v num" id="aiInNew">—</div><div class="l">New patients</div></div>
-              <div class="as"><div class="v" style="font-size:17px;margin-top:5px">No data yet</div><div class="l">Cost</div></div>
+              <div class="as"><div class="v" id="aiInCost" style="font-size:17px;margin-top:5px">No data yet</div><div class="l" id="aiInCostLab">Cost</div></div>
             </div>
             <div class="ai-booked-wrap" id="aiInBookedWrap"></div>
           </div>
@@ -1286,7 +1288,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
               <div class="as"><div class="v num" id="aiOutBooked">—</div><div class="l">Booked</div></div>
               <div class="as"><div class="v num" id="aiOutUnbooked">—</div><div class="l">Unbooked</div></div>
               <div class="as"><div class="v num" id="aiOutNew">—</div><div class="l">New patients</div></div>
-              <div class="as"><div class="v" style="font-size:17px;margin-top:5px">No data yet</div><div class="l">Cost</div></div>
+              <div class="as"><div class="v" id="aiOutCost" style="font-size:17px;margin-top:5px">No data yet</div><div class="l" id="aiOutCostLab">Cost</div></div>
             </div>
             <div class="ai-booked-wrap" id="aiOutBookedWrap"></div>
           </div>
@@ -1299,7 +1301,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
               <div class="as"><div class="v num" id="aiChatBooked">—</div><div class="l">Booked</div></div>
               <div class="as"><div class="v num" id="aiChatUnbooked">—</div><div class="l">Unbooked</div></div>
               <div class="as"><div class="v num" id="aiChatNew">—</div><div class="l">New patients</div></div>
-              <div class="as"><div class="v" style="font-size:17px;margin-top:5px">No data yet</div><div class="l">Cost</div></div>
+              <div class="as"><div class="v" id="aiChatCost" style="font-size:17px;margin-top:5px">No data yet</div><div class="l" id="aiChatCostLab">Cost</div></div>
             </div>
             <div class="ai-booked-wrap" id="aiChatBookedWrap"></div>
           </div>
@@ -1327,15 +1329,9 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
         <div class="page-head">
           <div><h2>Do Not Call</h2></div>
         </div>
-        <div class="kpis kpis-3">
+        <div class="kpis kpis-2">
           <div class="kpi"><div class="k-label">Do Not Call</div><div class="k-value num" id="dncKpi">—</div><div class="k-sub">Contacts with dnc = true</div></div>
           <div class="kpi"><div class="k-label">New this week</div><div class="k-value num" id="dncNewWeek">—</div><div class="k-sub" id="dncLatestSub"></div></div>
-          <div class="kpi"><div class="k-label">Most common reason</div><div class="k-value num" style="font-size:25px;margin-top:13px">No data yet</div><div class="k-sub">No reason recorded</div></div>
-        </div>
-        <div class="panel" style="margin-bottom:22px">
-          <h3>By reason</h3>
-          <div class="nb-bucket"><span class="nb-lab">Reason not recorded</span><span class="nb-track"><i class="nb-fill" style="width:100%;background:var(--muted)"></i></span><span class="nb-num num" id="dncBucketNum">—</span></div>
-          <p style="color:var(--muted);font-size:12.5px;margin:10px 0 0" id="dncTotal">Total verified: —</p>
         </div>
         <div class="list-card">
           <div class="list-head" style="grid-template-columns:1.4fr 1.6fr 1fr">
@@ -1592,6 +1588,30 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
         <button class="btn primary small" type="button" id="assistSave">Save key</button>
         <button class="btn danger small" type="button" id="assistDelete" hidden>Delete key</button>
         <span class="cell-sub" id="assistSaveNote" role="status"></span>
+      </div>
+      <div style="margin-top:16px">
+        <div class="cell-sub" style="font-weight:800;margin-bottom:8px">AI call costs — Retell + Vapi</div>
+        <div class="mode-line"><span class="mode-dot" id="costCfgDot"></span><span id="costCfgStatus">Checking call-cost keys…</span></div>
+        <div class="field">
+          <label for="retellKey">Retell API key</label>
+          <input type="password" id="retellKey" placeholder="Paste your Retell API key" autocomplete="off" />
+          <div class="f-note">From the Retell dashboard → API Keys. Saved on the secure server only — never shown again.</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn primary small" type="button" id="retellSave">Save Retell key</button>
+          <button class="btn danger small" type="button" id="retellDelete" hidden>Delete Retell key</button>
+          <span class="cell-sub" id="retellNote" role="status"></span>
+        </div>
+        <div class="field" style="margin-top:10px">
+          <label for="vapiKey">Vapi private key</label>
+          <input type="password" id="vapiKey" placeholder="Paste your Vapi private key" autocomplete="off" />
+          <div class="f-note">Private key only — the public key cannot read call costs. Saved on the secure server only.</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn primary small" type="button" id="vapiSave">Save Vapi key</button>
+          <button class="btn danger small" type="button" id="vapiDelete" hidden>Delete Vapi key</button>
+          <span class="cell-sub" id="vapiNote" role="status"></span>
+        </div>
       </div>
     </div>
 
@@ -3798,6 +3818,9 @@ function applyDateFilter(){
   renderDischarged();
   renderPayments();
   if (typeof window.refreshUsersDateFilter === "function") window.refreshUsersDateFilter();
+  /* AI call costs follow the same date range — re-fetch only when the
+     range actually changed (guarded inside fetchAiCosts). */
+  if (typeof fetchAiCosts === "function") fetchAiCosts();
 }
 document.querySelectorAll("#datePills .pill").forEach(function(b){
   b.addEventListener("click", function(){
@@ -3921,6 +3944,144 @@ function aiFnPost(payload){
   });
 }
 
+/* ================= AI CALL COSTS (Retell + Vapi) ================= */
+/* Same security model as the AI assistant: the Retell/Vapi keys live ONLY
+   in Supabase Vault, read server-side by the ai-costs function. This page
+   never stores, reads or displays a key, and never calls Retell or Vapi
+   directly. Costs are USD ($), never £. */
+var AI_COSTS_FN_URL = "https://qyvkseltcebgkojmmuno.supabase.co/functions/v1/ai-costs";
+function aiCostsFnPost(payload){
+  return fetch(AI_COSTS_FN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  }).then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(data){ return { ok: r.ok, data: data || {} }; });
+  });
+}
+var AI_COSTS = { status: null, data: null, lastFrom: null, lastTo: null, fetching: false, loadError: false };
+function fmtMoney(n){ var v = (typeof n === "number" && isFinite(n)) ? n : 0; return "$" + v.toFixed(2); }
+function fmtMins(min){ var m = Math.round((typeof min === "number" && isFinite(min)) ? min : 0); return m + " min"; }
+function aiCostRange(){ var b = rangeBounds(); return b ? { from: b[0], to: b[1] } : { from: null, to: null }; }
+function aiCostCoverageSuffix(){
+  var st = AI_COSTS.status || {};
+  if(st.retell_configured && st.vapi_configured) return "";
+  if(st.retell_configured) return " · Retell only";
+  if(st.vapi_configured) return " · Vapi only";
+  return "";
+}
+function renderAiCosts(){
+  var st = AI_COSTS.status, d = AI_COSTS.data;
+  var bothUnconf = !!(st && !st.retell_configured && !st.vapi_configured);
+  /* Per-agent cells — an agent whose provider key is missing shows an
+     honest "Add key in Settings", never a fake zero. */
+  var cells = [
+    { v: "aiInCost", l: "aiInCostLab", key: "in", need: "retell" },
+    { v: "aiOutCost", l: "aiOutCostLab", key: "out", need: "retell" },
+    { v: "aiChatCost", l: "aiChatCostLab", key: "chat", need: "vapi" }
+  ];
+  cells.forEach(function(c){
+    var vel = document.getElementById(c.v), lel = document.getElementById(c.l);
+    if(!vel) return;
+    if(!st) return; /* status unknown — leave the "No data yet" placeholder */
+    if(!st[c.need + "_configured"]){
+      vel.textContent = "Add key in Settings";
+      if(lel) lel.textContent = "Cost";
+      return;
+    }
+    if(AI_COSTS.loadError || !d){
+      vel.textContent = "Couldn't load";
+      if(lel) lel.textContent = "Cost — try again";
+      return;
+    }
+    var provErr = d.providers && d.providers[c.need];
+    if(provErr && provErr.error){
+      vel.textContent = "Couldn't load";
+      if(lel) lel.textContent = "Cost — check the key";
+      return;
+    }
+    var a = (d.agents && d.agents[c.key]) || { minutes: 0, cost: 0, calls: 0 };
+    vel.textContent = fmtMins(a.minutes) + " · " + fmtMoney(a.cost);
+    if(lel) lel.textContent = "Cost · " + (a.calls || 0) + " call" + ((a.calls || 0) === 1 ? "" : "s");
+  });
+  /* AI page totals. */
+  if(st){
+    var tot = (d && d.totals) || { minutes: 0, cost: 0, calls: 0 };
+    if(bothUnconf){
+      setText("aiTotalCost", "No data yet"); setText("aiTotalMinutes", "No data yet");
+      setText("aiCostSub", "Add the Retell/Vapi key in Settings");
+      setText("aiMinutesSub", "Add the Retell/Vapi key in Settings");
+    } else if(AI_COSTS.loadError || !d){
+      setText("aiTotalCost", "Couldn't load"); setText("aiTotalMinutes", "Couldn't load");
+      setText("aiCostSub", "Retell/Vapi billing — try again");
+      setText("aiMinutesSub", "Retell/Vapi billing — try again");
+    } else {
+      setText("aiTotalCost", fmtMoney(tot.cost));
+      setText("aiTotalMinutes", fmtMins(tot.minutes));
+      setText("aiCostSub", "Retell/Vapi billing · " + rangeText() + aiCostCoverageSuffix());
+      setText("aiMinutesSub", "Retell/Vapi billing · " + rangeText() + aiCostCoverageSuffix());
+    }
+  }
+  /* Overview panel — combined total only, never the per-agent breakdown. */
+  var ov = document.getElementById("ovAiCostTotal");
+  if(ov && st){
+    if(bothUnconf){ ov.textContent = "AI call costs — add the Retell/Vapi key in Settings to see totals."; }
+    else if(AI_COSTS.loadError || !d){ ov.textContent = "AI call costs — couldn't load. Check the keys in Settings."; }
+    else {
+      var t2 = d.totals || { minutes: 0, cost: 0, calls: 0 };
+      ov.textContent = "AI call costs · " + fmtMins(t2.minutes) + " · " + fmtMoney(t2.cost) + " · " + (t2.calls || 0) + " calls · " + rangeText() + aiCostCoverageSuffix();
+    }
+  }
+}
+function aiCostApplyStatus(){
+  var st = AI_COSTS.status || {};
+  var r = !!st.retell_configured, v = !!st.vapi_configured;
+  var label = (r && v) ? "Call-cost keys configured: Retell · Vapi"
+    : r ? "Call-cost keys: Retell configured · Vapi not configured"
+    : v ? "Call-cost keys: Vapi configured · Retell not configured"
+    : "Call-cost keys not configured";
+  setText("costCfgStatus", label);
+  var dot = document.getElementById("costCfgDot"); if(dot) dot.classList.toggle("on", r || v);
+  var rd = document.getElementById("retellDelete");
+  if(rd){ rd.hidden = !r; rd.textContent = "Delete Retell key"; rd.classList.remove("confirm"); rd.disabled = false; }
+  var vd = document.getElementById("vapiDelete");
+  if(vd){ vd.hidden = !v; vd.textContent = "Delete Vapi key"; vd.classList.remove("confirm"); vd.disabled = false; }
+}
+function fetchAiCostStatus(){
+  return aiCostsFnPost({ action: "status" })
+    .then(function(res){
+      AI_COSTS.status = res.data || {};
+      aiCostApplyStatus();
+      renderAiCosts();
+    })
+    .catch(function(){ AI_COSTS.status = {}; aiCostApplyStatus(); renderAiCosts(); });
+}
+function fetchAiCosts(force){
+  if(AI_COSTS.fetching) return;
+  var rg = aiCostRange();
+  if(!force && AI_COSTS.data && AI_COSTS.lastFrom === rg.from && AI_COSTS.lastTo === rg.to){ renderAiCosts(); return; }
+  AI_COSTS.fetching = true;
+  var go = function(){
+    if(AI_COSTS.status && !AI_COSTS.status.retell_configured && !AI_COSTS.status.vapi_configured){
+      /* No extra fetch when both keys are unconfigured — show the
+         not-configured state without calling costs. */
+      AI_COSTS.fetching = false; AI_COSTS.data = null; AI_COSTS.loadError = false; renderAiCosts(); return;
+    }
+    aiCostsFnPost({ action: "costs", from: rg.from, to: rg.to })
+      .then(function(res){
+        if(res.ok && res.data && !res.data.error){
+          AI_COSTS.data = res.data; AI_COSTS.lastFrom = rg.from; AI_COSTS.lastTo = rg.to; AI_COSTS.loadError = false;
+        } else {
+          AI_COSTS.data = null; AI_COSTS.loadError = true;
+        }
+        AI_COSTS.fetching = false; renderAiCosts();
+      })
+      .catch(function(){ AI_COSTS.fetching = false; AI_COSTS.data = null; AI_COSTS.loadError = true; renderAiCosts(); });
+  };
+  if(!AI_COSTS.status){ fetchAiCostStatus().then(go); }
+  else go();
+}
+
 var assistLog = document.getElementById("assistLog");
 function assistAdd(who, text){
   var div = document.createElement("div");
@@ -3990,7 +4151,7 @@ assistSettingsBtn.addEventListener("click", function(){
   assistSettings.hidden = !show;
   assistSettingsBtn.classList.toggle("on", show);
   assistSettingsBtn.setAttribute("aria-expanded", show ? "true" : "false");
-  if(show) assistFetchStatus();
+  if(show){ assistFetchStatus(); fetchAiCostStatus(); }
 });
 
 /* Settings — the key is sent ONCE to the server function over HTTPS and is
@@ -4106,6 +4267,67 @@ assistDeleteBtn.addEventListener("click", function(){
       assistDeleteBtn.disabled = false;
     });
 });
+
+/* Call-cost keys — same pattern as the AI provider key: sent ONCE to the
+   ai-costs server function, never kept in this browser, never read back. */
+function aiCostSave(provider, keyElId, noteId, btnId){
+  var keyEl = document.getElementById(keyElId), note = document.getElementById(noteId), btn = document.getElementById(btnId);
+  var key = keyEl.value.trim();
+  if(!key){ note.textContent = "Paste the key first."; return; }
+  btn.disabled = true; note.textContent = "Saving…";
+  aiCostsFnPost({ action: provider === "retell" ? "save_retell_key" : "save_vapi_key", key: key })
+    .then(function(res){
+      var data = res.data;
+      if(res.ok && !data.error){
+        keyEl.value = "";
+        note.textContent = "Key saved.";
+        AI_COSTS.status = null; AI_COSTS.data = null; AI_COSTS.lastFrom = null; AI_COSTS.lastTo = null;
+        fetchAiCostStatus().then(function(){ fetchAiCosts(true); });
+      } else {
+        note.textContent = data.error || data.message || "Could not save the key — please try again.";
+      }
+    })
+    .catch(function(){ note.textContent = "Couldn't reach the server — please try again."; })
+    .then(function(){ btn.disabled = false; });
+}
+document.getElementById("retellSave").addEventListener("click", function(){ aiCostSave("retell", "retellKey", "retellNote", "retellSave"); });
+document.getElementById("vapiSave").addEventListener("click", function(){ aiCostSave("vapi", "vapiKey", "vapiNote", "vapiSave"); });
+/* Two-tap confirm deletes, same pattern as the AI key delete. */
+function aiCostDeleteWire(provider, btnId, noteId){
+  var btn = document.getElementById(btnId), note = document.getElementById(noteId);
+  var armed = false, timer = null;
+  var label = provider === "retell" ? "Delete Retell key" : "Delete Vapi key";
+  btn.addEventListener("click", function(){
+    if(!armed){
+      armed = true;
+      btn.textContent = "Tap again to confirm delete";
+      btn.classList.add("confirm");
+      note.textContent = "";
+      timer = setTimeout(function(){ armed = false; btn.textContent = label; btn.classList.remove("confirm"); }, 5000);
+      return;
+    }
+    if(timer){ clearTimeout(timer); timer = null; }
+    armed = false;
+    btn.textContent = label;
+    btn.classList.remove("confirm");
+    btn.disabled = true; note.textContent = "Deleting…";
+    aiCostsFnPost({ action: provider === "retell" ? "delete_retell_key" : "delete_vapi_key" })
+      .then(function(res){
+        var data = res.data;
+        if(res.ok && !data.error){
+          note.textContent = "Key deleted.";
+          AI_COSTS.status = null; AI_COSTS.data = null; AI_COSTS.lastFrom = null; AI_COSTS.lastTo = null;
+          fetchAiCostStatus().then(function(){ fetchAiCosts(true); });
+        } else {
+          note.textContent = data.error || data.message || "Could not delete the key — please try again.";
+          btn.disabled = false;
+        }
+      })
+      .catch(function(){ note.textContent = "Couldn't reach the server — please try again."; btn.disabled = false; });
+  });
+}
+aiCostDeleteWire("retell", "retellDelete", "retellNote");
+aiCostDeleteWire("vapi", "vapiDelete", "vapiNote");
 
 renderAdmin();
 applyDateFilter();
@@ -5719,6 +5941,9 @@ function updateLiveTotals(counts, lists){
   setText("ovAiChat", fmtNum(aiChat.booked) + " booked");
   document.querySelectorAll(".ovAiOut").forEach(function(el){ el.textContent = fmtNum(aiOut.booked) + " booked"; });
   renderAiBookedLists();
+  /* AI call costs (Retell + Vapi, direct from their APIs) — same date
+     range as the booked counts above. fetchAiCosts is a script-2 global. */
+  if (typeof fetchAiCosts === "function") fetchAiCosts();
   document.querySelectorAll("#page-admin-today [data-physio]").forEach(function(btn){
     var row = btn.closest(".list-row"); if (!row) return;
     var num = row.querySelector(".num"); if (!num) return;
