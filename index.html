@@ -213,6 +213,10 @@ h1,h2,h3{font-family:"Fraunces",Georgia,serif;font-weight:600;line-height:1.15;m
 .agent-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;margin-top:16px}
 .agent-stats .as .v{font-family:"Fraunces",Georgia,serif;font-size:23px;font-weight:600;line-height:1.1}
 .agent-stats .as .l{font-size:11.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.ai-booked-toggle{margin-top:14px}
+.ai-booked-list{margin-top:10px;border-top:1px solid var(--line);padding-top:4px}
+.ai-booked-row{display:flex;justify-content:space-between;gap:14px;padding:7px 0;border-bottom:1px solid var(--line)}
+.ai-booked-row:last-child{border-bottom:0}
 .cost-note{margin-top:16px;border-top:1px solid var(--line);padding-top:12px;font-size:13px;color:var(--muted)}
 
 .map-table{width:100%;border-collapse:collapse;font-size:14px}
@@ -443,6 +447,41 @@ h1,h2,h3{font-family:"Fraunces",Georgia,serif;font-weight:600;line-height:1.15;m
 .prog-legend{display:flex;gap:16px;flex-wrap:wrap;margin:14px 0 2px}
 .prog-legend span{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
 .prog-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+/* Overview trend chart — one stacked bar per month (same palette as
+   Progress): attended / cancelled / no-shows as segments of the
+   month's total, counts beside the bar. */
+.ov-trend-row{display:grid;grid-template-columns:86px 1fr 132px;gap:10px;align-items:center;margin:12px 0}
+.ov-trend-nums{font-size:13px;font-weight:700;text-align:right;white-space:nowrap}
+.ov-stack{display:flex;height:18px;border-radius:9px;overflow:hidden;background:var(--surface-2)}
+.ov-stack i{display:block;height:100%}
+.ov-stack.anim i{animation:ovGrow .5s ease both;transform-origin:left}
+.ov-stack .seg-attended{background:#3E7C59}
+.ov-stack .seg-cancelled{background:var(--red)}
+.ov-stack .seg-noshow{background:#BE9848}
+@keyframes ovGrow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+/* Overview entrance — panels rise once, calmly. */
+#page-overview .panel{animation:ovRise .35s ease both}
+#page-overview .oc-grid .panel:nth-child(2){animation-delay:.05s}
+#page-overview .oc-grid .panel:nth-child(3){animation-delay:.1s}
+#page-overview .oc-grid .panel:nth-child(4){animation-delay:.15s}
+@keyframes ovRise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+/* Boot loader — calm clinic loader for the first data load. No fake
+   percentages, no timers: it clears when real data (or the honest
+   error view) is ready. */
+.boot-loader{display:flex;flex-direction:column;align-items:center;gap:12px;padding:26px 0 6px;text-align:center}
+.boot-ring{width:44px;height:44px;border-radius:50%;border:3px solid var(--teal-soft);border-top-color:var(--teal-deep);animation:bootSpin 1s linear infinite}
+@keyframes bootSpin{to{transform:rotate(360deg)}}
+.boot-line{font-size:14px;font-weight:700}
+.boot-sub{font-size:12.5px;color:var(--muted)}
+.boot-shimmer{width:180px;height:4px;border-radius:2px;background:var(--surface-2);overflow:hidden}
+.boot-shimmer i{display:block;height:100%;width:40%;border-radius:2px;background:var(--teal-deep);animation:bootShim 1.4s ease-in-out infinite}
+@keyframes bootShim{0%{transform:translateX(-110%)}100%{transform:translateX(460%)}}
+@media (prefers-reduced-motion: reduce){
+  #page-overview .panel{animation:none}
+  .ov-stack.anim i{animation:none}
+  .boot-ring,.boot-shimmer i{animation:none}
+  .boot-ring{border-top-color:var(--teal-soft)}
+}
 .prog-group-head{font-weight:800;font-size:14.5px;margin:18px 0 6px}
 .prog-group-head:first-child{margin-top:2px}
 .nd{color:var(--muted);font-size:12px;font-weight:700}
@@ -606,7 +645,12 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
     </div>
 
     <div id="gateLoading">
-      <p class="gate-note">Loading&hellip;</p>
+      <div class="boot-loader" role="status" aria-live="polite">
+        <div class="boot-ring" aria-hidden="true"></div>
+        <div class="boot-line">Loading your clinic&hellip;</div>
+        <div class="boot-sub">Fetching your latest appointments, tasks and patients.</div>
+        <div class="boot-shimmer" aria-hidden="true"><i></i></div>
+      </div>
     </div>
 
     <div id="gateLogin" hidden>
@@ -847,9 +891,8 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
           </div>
 
           <div class="panel">
-            <div class="panel-head"><h3>Patient safety</h3><button class="link-btn" data-goto="complaints">Complaints &amp; Refunds →</button></div>
+            <div class="panel-head"><h3>Patient alerts</h3><button class="link-btn" data-goto="complaints">Complaints &amp; Refunds →</button></div>
             <div class="rows">
-              <div class="row-item" data-goto="complaints"><div class="row-main"><div class="row-title">Complaints &amp; refunds</div><div class="row-sub" id="ovCompSub">Complaints / refunds · all time</div></div><div class="row-side"><div class="t num" id="ovCompTasks">—</div><div class="row-sub">Tasks</div></div></div>
               <div class="row-item" data-goto="patients"><div class="row-main"><div class="row-title">Referrals to check</div><div class="row-sub" id="ovRefSub">From Supabase</div></div><div class="row-side"><div class="t num" id="ovRefCount">0</div></div></div>
               <div class="row-item" data-goto="dnc"><div class="row-main"><div class="row-title">Do Not Call</div><div class="row-sub">Contacts flagged DNC</div></div><div class="row-side"><div class="t num" id="ovDnc">—</div></div></div>
             </div>
@@ -871,6 +914,11 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
               <div class="row-item" data-goto="ai"><div class="row-main"><div class="row-title">Outbound Calling</div><div class="row-sub">Reactivation &amp; follow-up calls</div></div><div class="row-side"><div class="t num ovAiOut">—</div></div></div>
             </div>
           </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:22px">
+          <div class="panel-head"><h3>Appointments · last 3 months</h3><button class="link-btn" data-goto="progress">Progress →</button></div>
+          <div id="ovTrend"></div>
         </div>
 
         <div class="panel">
@@ -1220,6 +1268,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
               <div class="as"><div class="v num" id="aiInNew">—</div><div class="l">New patients</div></div>
               <div class="as"><div class="v" style="font-size:17px;margin-top:5px">No data yet</div><div class="l">Cost</div></div>
             </div>
+            <div class="ai-booked-wrap" id="aiInBookedWrap"></div>
           </div>
           <div class="agent-card">
             <div class="agent-top">
@@ -1232,6 +1281,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
               <div class="as"><div class="v num" id="aiOutNew">—</div><div class="l">New patients</div></div>
               <div class="as"><div class="v" style="font-size:17px;margin-top:5px">No data yet</div><div class="l">Cost</div></div>
             </div>
+            <div class="ai-booked-wrap" id="aiOutBookedWrap"></div>
           </div>
           <div class="agent-card">
             <div class="agent-top">
@@ -1244,6 +1294,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
               <div class="as"><div class="v num" id="aiChatNew">—</div><div class="l">New patients</div></div>
               <div class="as"><div class="v" style="font-size:17px;margin-top:5px">No data yet</div><div class="l">Cost</div></div>
             </div>
+            <div class="ai-booked-wrap" id="aiChatBookedWrap"></div>
           </div>
         </div>
       </section>
@@ -3778,7 +3829,7 @@ function tagHtml(outcome){
 }
 
 /* ---------- live fetch ---------- */
-var liveLoaded = false, liveBusy = false, refreshTimer = null;
+var liveLoaded = false, liveBusy = false, refreshTimer = null, bootTimer = null;
 var LIVE = null;
 
 function listQ(table, cols, orderCol, asc, limit){
@@ -4107,7 +4158,7 @@ function fetchAll(){
     /* Recovery-sequence definitions (display names + stage plans) and
        stage events (follow-up counts) — the Cancellations "Recovery
        sequence" column and the Discharged page read live from these. */
-    gated(["patients","discharged","cancellations"], function(){ return listAll("sequence_definitions","sequence_key,display_name,enabled,stage_plan","sequence_key",true).then(function(d){ lists.seqDefs = d; }); }, function(d){ lists.seqDefs = d; }),
+    gated(["patients","discharged","cancellations"], function(){ return listAll("sequence_definitions","sequence_key,display_name,enabled,stage_plan",null,true).then(function(d){ lists.seqDefs = d; }); }, function(d){ lists.seqDefs = d; }),
     gated(["patients","discharged","cancellations"], function(){ return listAll("sequence_events","sequence_instance_id,event_type,stage,occurred_at","occurred_at",false).then(function(d){ lists.seqEvents = d; }); }, function(d){ lists.seqEvents = d; }),
     gated(["team","performance","appointments","admin-today","unprocessed","my-appointments","my-patients","my-tasks"], function(){ return listQ("practicehub_practitioners","practitioner_id,name,active",null,false,50).then(function(d){ lists.practitioners = d; }); }, function(d){ lists.practitioners = d; }),
     /* Targeted sets — complaint / refund tasks by task_type, and cancelled /
@@ -4583,6 +4634,7 @@ function applyLiveData(data){
     var prov = String(x.provider || "").toLowerCase();
     var src = prov === "vapi" ? "chat" : (prov === "assistant" ? "mastl" : (x.direction === "outbound" ? "reactivation" : "afterhours"));
     return { id: "q" + x.id, pid: pidOf(x.contact_id), src: src, date: (x.created_at || "").slice(0,10),
+      when: fmtWhen(x.created_at), ts: x.created_at || "",
       booked: x.outcome === "appointment_booked", isNew: /new patient/i.test(x.summary || ""),
       outcome: stripMarkup(humanize(x.outcome || "")), tag: outcomeTag(x.outcome), reason: stripMarkup(x.summary || "") };
   });
@@ -5133,8 +5185,6 @@ function updateLiveTotals(counts, lists){
   setText("ooOverdue", fmtNum(overdue));
   setText("ooDueToday", fmtNum(dueToday));
   setText("ovDueToday", fmtNum(dueToday));
-  setText("ovCompTasks", fmtNum(counts.tasksComplaint + counts.tasksRefund));
-  setText("ovCompSub", fmtNum(counts.tasksComplaint) + " complaints / " + fmtNum(counts.tasksRefund) + " refunds \u00b7 all time");
   setText("ovNewPatients", fmtNum(newThisMonth));
   setText("ovNewSub", "New contacts \u00b7 " + (lp2 ? lp2.mon + " " + lp2.year : ""));
   if (lm){ setText("ovAttended", fmtNum(lm.attended)); setText("ovAttendedSub", lab); }
@@ -5143,6 +5193,7 @@ function updateLiveTotals(counts, lists){
   if (lm) setText("ooDnaSub", "All time \u00b7 " + fmtNum(lm.no_shows) + " in " + lab);
   setText("ooLost", fmtNum(lost));
   setText("ovDnc", fmtNum(counts.contactsDnc));
+  renderOvTrend();
   setText("pillDnc", fmtNum(counts.contactsDnc));
   setText("crCompHead", fmtNum(counts.tasksComplaint) + " tasks in total");
   setText("crRefHead", fmtNum(counts.tasksRefund) + " tasks in total");
@@ -5153,6 +5204,46 @@ function updateLiveTotals(counts, lists){
   if (dncContacts.length){
     var latestDnc = dncContacts.map(function(c){ return c.created_at || ""; }).sort().pop();
     setText("dncLatestSub", "Latest added " + fmtDay(latestDnc));
+  }
+  /* Booked patients per agent — same rows and same "booked" definition
+     as the counts above (ENQUIRIES, in the current date range), so the
+     list can never disagree with the Booked number on the card. The time
+     shown is the booking event time (the interaction's created_at), not
+     the appointment time — interactions do not store the appointment. */
+  var AI_LIST_OPEN = { "in": false, out: false, chat: false };
+  var aiListBound = false;
+  function aiBookedRows(srcKeys){
+    return ENQUIRIES.filter(function(e){ return srcKeys.indexOf(e.src) !== -1 && inRange(e.date) && e.booked; })
+      .slice().sort(function(a, b){ var x = a.ts || "", y = b.ts || ""; return x < y ? 1 : (x > y ? -1 : 0); });
+  }
+  function renderAiBookedLists(){
+    [["in", ["afterhours"], "aiInBookedWrap"], ["out", ["reactivation", "mastl"], "aiOutBookedWrap"], ["chat", ["chat"], "aiChatBookedWrap"]].forEach(function(cfg){
+      var key = cfg[0], wrap = document.getElementById(cfg[2]); if (!wrap) return;
+      var rows = aiBookedRows(cfg[1]);
+      var open = !!AI_LIST_OPEN[key];
+      var html = '<button class="link-btn ai-booked-toggle" type="button" data-ai-list="' + key + '">Booked patients (' + rows.length + ') ' + (open ? "▾" : "▸") + '</button>';
+      if (open){
+        html += rows.length ? '<div class="ai-booked-list">' + rows.map(function(e){
+          var p = enqPatient(e.pid);
+          var name = e.pid
+            ? '<button class="link-btn cell-main" type="button" style="padding:0;min-height:0;text-align:left" data-patient-link="' + e.pid + '">' + escHtml(p.name) + '</button>'
+            : escHtml(p.name);
+          return '<div class="ai-booked-row"><div>' + name + '</div><div class="cell-sub" style="white-space:nowrap">Booked ' + escHtml(e.when || e.date) + '</div></div>';
+        }).join("") + '</div>' : '<div class="empty-note">No bookings in this date range.</div>';
+      }
+      wrap.innerHTML = html;
+    });
+    bindPatientClicks(document.getElementById("page-ai"));
+    if (!aiListBound){
+      aiListBound = true;
+      document.addEventListener("click", function(ev){
+        var b = ev.target && ev.target.closest ? ev.target.closest("[data-ai-list]") : null;
+        if (!b) return;
+        var k = b.getAttribute("data-ai-list");
+        AI_LIST_OPEN[k] = !AI_LIST_OPEN[k];
+        renderAiBookedLists();
+      });
+    }
   }
   function agentStats(srcKeys){
     /* Same rows and same "booked" definition as Enquiries & Leads:
@@ -5167,6 +5258,7 @@ function updateLiveTotals(counts, lists){
   setText("ovAiIn", fmtNum(aiIn.booked) + " booked");
   setText("ovAiChat", fmtNum(aiChat.booked) + " booked");
   document.querySelectorAll(".ovAiOut").forEach(function(el){ el.textContent = fmtNum(aiOut.booked) + " booked"; });
+  renderAiBookedLists();
   document.querySelectorAll("#page-admin-today [data-physio]").forEach(function(btn){
     var row = btn.closest(".list-row"); if (!row) return;
     var num = row.querySelector(".num"); if (!num) return;
@@ -5198,6 +5290,28 @@ function rebuildProgressMonths(monthly){
     el.addEventListener("keydown", function(e){ if (e.key === "Enter"){ e.preventDefault(); PROG_MONTH = el.getAttribute("data-progmonth"); rebuildProgressMonths(PROG_MONTHLY); } });
   });
   renderProgressMonth();
+}
+/* Overview trend chart — one stacked bar per month from PROG_MONTHLY
+   (dashboard_monthly_performance — real values only): attended /
+   cancelled / no-shows as segments of that month's total, with the
+   three counts beside the bar. No months = "No data yet". The grow
+   animation runs on the first render only, never on refreshes. */
+var ovTrendAnimated = false;
+function renderOvTrend(){
+  var el = document.getElementById("ovTrend"); if (!el) return;
+  var months = (PROG_MONTHLY || []).slice().sort(function(a,b){ return String(a.report_month) < String(b.report_month) ? -1 : (String(a.report_month) > String(b.report_month) ? 1 : 0); });
+  if (!months.length){ el.innerHTML = '<div class="empty-note">No data yet</div>'; return; }
+  var anim = ovTrendAnimated ? "" : " anim"; ovTrendAnimated = true;
+  var html = months.map(function(m){
+    var p = dparts(m.report_month);
+    var lab = p ? p.mon + " " + p.year : String(m.report_month || "").slice(0,7);
+    var att = m.attended || 0, can = m.cancellations || 0, ns = m.no_shows || 0;
+    var tot = att + can + ns;
+    if (!tot) return '<div class="ov-trend-row"><div class="cell-main">' + esc(lab) + '</div><div class="cell-sub">No data yet</div><div></div></div>';
+    function seg(v, cls){ return v ? '<i class="' + cls + '" style="width:' + (v / tot * 100) + '%"></i>' : ""; }
+    return '<div class="ov-trend-row"><div class="cell-main">' + esc(lab) + '</div><div class="ov-stack' + anim + '" role="img" aria-label="' + esc(lab) + ': ' + fmtNum(att) + ' attended, ' + fmtNum(can) + ' cancelled, ' + fmtNum(ns) + ' no-shows">' + seg(att, "seg-attended") + seg(can, "seg-cancelled") + seg(ns, "seg-noshow") + '</div><div class="ov-trend-nums num">' + fmtNum(att) + " \u00b7 " + fmtNum(can) + " \u00b7 " + fmtNum(ns) + "</div></div>";
+  }).join("");
+  el.innerHTML = html + '<div class="prog-legend"><span><span class="prog-dot prog-bar-attended"></span>Attended</span><span><span class="prog-dot prog-bar-cancelled"></span>Cancelled</span><span><span class="prog-dot prog-bar-noshow"></span>No-shows</span></div><p class="foot-note" style="text-align:left">Numbers beside each bar are attended \u00b7 cancelled \u00b7 no-shows.</p>';
 }
 /* Selected month's report: coloured bars for the three monthly metrics
    (dashboard_monthly_performance — real values only) + the per-physio
@@ -5289,6 +5403,14 @@ function fetchLive(first){
   if (!sb || liveBusy) return;
   liveBusy = true;
   setStatus("Loading\u2026");
+  /* First load: keep the branded loader up until real data (or the
+     honest error view) is ready. Safety net: if the fetch hangs, show
+     the error view after 30s — never a permanent spinner. */
+  if (first && !liveLoaded){
+    showView("loading");
+    if (bootTimer) clearTimeout(bootTimer);
+    bootTimer = setTimeout(function(){ if (!liveLoaded && views.loading && !views.loading.hidden) showView("error"); }, 30000);
+  }
   var rb = document.getElementById("liveRefresh"); if (rb) rb.disabled = true;
   fetchAll().then(function(data){
     LIVE = data;
@@ -5298,6 +5420,7 @@ function fetchLive(first){
        the original guard unchanged. */
     var myExempt = !ACCESS.isOwner && (ACCESS.allowed.has("my-appointments") || ACCESS.allowed.has("my-patients") || ACCESS.allowed.has("my-tasks"));
     if (!myExempt && !data.lists.contacts.length && !data.counts.contacts && !data.counts.tasks && !data.counts.appts){
+      if (bootTimer){ clearTimeout(bootTimer); bootTimer = null; }
       showView("noaccess");
       document.body.classList.add("locked");
       return;
@@ -5308,6 +5431,7 @@ function fetchLive(first){
     applying = false;
     var firstLoad = !liveLoaded;
     liveLoaded = true;
+    if (bootTimer){ clearTimeout(bootTimer); bootTimer = null; }
     hideGate();
     if (firstLoad) showAssistTip();
     var now = new Date();
@@ -5319,7 +5443,7 @@ function fetchLive(first){
       sb.auth.getSession().then(function(res){ if (res.data && res.data.session) fetchLive(false); }).catch(function(){});
     }, 5 * 60 * 1000);
   }).catch(function(){
-    if (!liveLoaded) { document.body.classList.add("locked"); showView("error"); }
+    if (!liveLoaded) { if (bootTimer){ clearTimeout(bootTimer); bootTimer = null; } document.body.classList.add("locked"); showView("error"); }
     else { setStatus("Couldn\u2019t load live data — check your connection and try again"); }
   }).then(function(){
     liveBusy = false;
@@ -5915,7 +6039,10 @@ function enterDashboard(){
   var rf = document.getElementById("rangeFrom"), rt = document.getElementById("rangeTo");
   if (rf){ rf.value = DATE_STATE.from; rf.removeAttribute("min"); rf.removeAttribute("max"); }
   if (rt){ rt.value = DATE_STATE.to; rt.removeAttribute("min"); rt.removeAttribute("max"); }
-  hideGate();
+  /* Keep the gate on the loading view while the first data fetch runs —
+     hiding it first leaves a blank shell for 2–3s. fetchLive hides the
+     gate once real data is ready (or shows the error view). */
+  showView("loading");
   fetchLive(true);
 }
 
