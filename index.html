@@ -567,7 +567,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
 .invite-type-row{display:flex;gap:18px;align-items:center;padding:2px 0}
 .type-opt{display:inline-flex;gap:6px;align-items:center;font-weight:600;cursor:pointer;padding:6px 12px;border:1px solid transparent;border-radius:10px}
 .type-opt input{width:18px;height:18px;accent-color:var(--teal-deep);flex:none;cursor:pointer}
-.type-opt.selected{background:#25272A;border:2px solid var(--teal-deep);color:#fff;font-weight:800}
+.type-opt.selected{background:var(--teal-soft);border:2px solid var(--teal-deep);color:var(--ink);font-weight:800}
 @media (max-width:640px){.invite-grid{grid-template-columns:1fr}}
 .btn.confirm{background:var(--amber-bg);border-color:var(--amber-dot);color:var(--amber)}
 .user-card.owner-card{background:var(--surface-3)}
@@ -1633,7 +1633,7 @@ function showPage(id, restoreY){
   closeSidebar();
   window.scrollTo({top:(typeof restoreY==="number" ? restoreY : 0)});
 }
-document.querySelectorAll(".nav-item").forEach(function(b){ b.addEventListener("click", function(){ var pg = b.getAttribute("data-page"); if (pg === "my-appointments") closeMyApptDetail(); if (pg === "my-tasks") closeMyTaskDetail(); showPage(pg); }); });
+document.querySelectorAll(".nav-item").forEach(function(b){ b.addEventListener("click", function(){ var pg = b.getAttribute("data-page"); try { if (pg === "my-appointments") closeMyApptDetail(); if (pg === "my-tasks") closeMyTaskDetail(); } catch(e){} showPage(pg); }); });
 document.querySelectorAll("[data-goto]").forEach(function(b){ b.addEventListener("click", function(){ showPage(b.getAttribute("data-goto")); }); });
 
 var sidebar=document.getElementById("sidebar"), scrim=document.getElementById("scrim");
@@ -1712,6 +1712,13 @@ function openTaskDetail(patientId, taskIdx){
   showPage("patient");
 }
 
+/* humanize() is also defined inside the live-data IIFE below; this
+   global copy (same logic) lets this script format status labels
+   without calling into the IIFE. */
+function humanize(s){
+  s = String(s || "").replace(/_/g, " ").trim();
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
 /* My Appointments detail — opened from a row on My Appointments.
    Reads only MY_APPTS (the scoped list the page already renders: the
    physio's own appointments, or all of them for the owner), so a
@@ -1746,9 +1753,12 @@ function openMyApptDetail(apptId){
   document.getElementById("myApptDetailBack").addEventListener("click", closeMyApptDetail);
   window.scrollTo({top:0});
 }
+/* NOTE: myUnmapped() is defined inside the live-data IIFE below, so this
+   script cannot call it — the same check is inlined here using the
+   global ACCESS (defined in the first script). */
 function closeMyApptDetail(){
   var det = document.getElementById("myApptDetail"); if (det){ det.hidden = true; det.innerHTML = ""; }
-  var card = document.getElementById("myApptCard"); if (card) card.hidden = myUnmapped();
+  var card = document.getElementById("myApptCard"); if (card) card.hidden = !ACCESS.isOwner && ACCESS.practitionerId == null;
   window.scrollTo({top:0});
 }
 /* My Tasks detail — reuses the patient-file task detail rows. Reads
