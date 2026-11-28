@@ -901,8 +901,8 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
           <button class="kpi kpi-link" data-goto="team"><div class="k-label">Packages sold</div><div class="k-value nodata">No data yet</div><div class="k-sub">No package data yet</div></button>
           <button class="kpi kpi-link" data-goto="team"><div class="k-label">New patient to package conversion</div><div class="k-value nodata">No data yet</div><div class="k-sub">No package data yet</div></button>
           <button class="kpi kpi-link" data-goto="progress"><div class="k-label">Attended appointments</div><div class="k-value num" id="ooAttended">—</div><div class="k-sub" id="ooAttendedSub"></div></button>
-          <button class="kpi kpi-link" data-goto="cancellations"><div class="k-label">Rebook rate</div><div class="k-value nodata">No data yet</div><div class="k-sub">No data yet</div></button>
-          <button class="kpi kpi-link" data-goto="cancellations"><div class="k-label">Cancel no rebook</div><div class="k-value nodata">No data yet</div><div class="k-sub">No data yet</div></button>
+          <button class="kpi kpi-link" data-goto="cancellations"><div class="k-label">Rebook rate</div><div class="k-value num" id="ooRebookRate">—</div><div class="k-sub" id="ooRebookRateSub">—</div></button>
+          <button class="kpi kpi-link" data-goto="cancellations"><div class="k-label">Cancel no rebook</div><div class="k-value num" id="ooCancelNoRebook">—</div><div class="k-sub" id="ooCancelNoRebookSub">—</div></button>
           <button class="kpi kpi-link" data-goto="cancellations"><div class="k-label">DNAs</div><div class="k-value num" id="ooDna">—</div><div class="k-sub" id="ooDnaSub">All time</div></button>
           <button class="kpi kpi-link" data-goto="ai"><div class="k-label">Called within 10 mins</div><div class="k-value nodata">No data yet</div><div class="k-sub">Not tracked</div></button>
           <button class="kpi kpi-link" data-goto="payments"><div class="k-label">Average spend per appointment</div><div class="k-value nodata">No data yet</div><div class="k-sub">No payment data yet</div></button>
@@ -1110,7 +1110,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
           <div class="kpi"><div class="k-label">DNAs (no-shows)</div><div class="k-value num" id="cxDna">—</div><div class="k-sub">All time</div></div>
           <div class="kpi"><div class="k-label">Rebooked</div><div class="k-value num" id="cxRebooked">—</div><div class="k-sub">Of cancellations &amp; DNAs in this date range</div></div>
         </div>
-        <p class="nb-note">If a patient rebooks, their follow-up sequence updates and stops.</p>
+        <p class="nb-note">If a patient rebooks, their recovery sequence updates and stops.</p>
         <div class="panel" style="margin-bottom:22px">
           <div class="panel-head"><h3>Cancellation reasons</h3><span class="cell-sub">Grouped from free-text cancel_reason</span></div>
           <div id="cxReasons"></div>
@@ -1130,7 +1130,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
         </div>
         <div class="list-card">
           <div class="list-head cx-grid">
-            <span>Patient</span><span>Was booked</span><span>Reason (as stored)</span><span>Rebooked · next</span><span>Follow-ups · sequence</span>
+            <span>Patient</span><span>Was booked</span><span>Reason (as stored)</span><span>Rebooked · next</span><span>Recovery sequence</span>
           </div>
           <div id="cxList"></div>
           <div class="empty-note hidden-row" id="cxEmpty">No cancellations or DNAs in this date range.</div>
@@ -1174,18 +1174,18 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
         </div>
         <div class="off-banner"><b>Discharge engine is OFF in n8n</b> — sequences not running; this list is from historical data.</div>
         <div class="kpis kpis-3">
-          <div class="kpi"><div class="k-label">Booked again after discharge</div><div class="k-value num" id="dcBooked">—</div><div class="k-sub">reactivated patients listed below</div></div>
+          <div class="kpi"><div class="k-label">Booked again after discharge</div><div class="k-value num" id="dcBooked">—</div><div class="k-sub" id="dcBookedSub">reactivated patients listed below</div></div>
           <div class="kpi"><div class="k-label">With open tasks</div><div class="k-value num" id="dcTasks">—</div></div>
-          <div class="kpi"><div class="k-label">Discharge sequence</div><div class="k-value num" style="font-size:25px;margin-top:13px">Paused</div><div class="k-sub">DISCHARGE_RETRY</div></div>
+          <div class="kpi"><div class="k-label">Discharge sequence</div><div class="k-value num" style="font-size:25px;margin-top:13px" id="dcSeq">—</div><div class="k-sub" id="dcSeqSub">—</div></div>
         </div>
         <div class="list-card">
           <div class="list-head dc-grid">
             <span>Patient</span><span>Discharged</span><span>Booked again</span><span>Next appointment</span><span>Open tasks</span>
           </div>
           <div id="dcList"></div>
-          <div class="empty-note hidden-row" id="dcEmpty">No reactivation data yet — no rows shown.</div>
+          <div class="empty-note hidden-row" id="dcEmpty">No discharge sequences recorded yet — no rows shown.</div>
         </div>
-        <p class="foot-note" style="text-align:left">Reactivation: no data yet</p>
+        <p class="foot-note" style="text-align:left" id="dcFoot">Reactivation: no data yet</p>
       </section>
 
 
@@ -1195,9 +1195,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
         <div class="page-head">
           <div><h2>Payments</h2></div>
         </div>
-        <div class="empty-state">
-          <div class="big">No data yet</div>
-        </div>
+        <div id="payBody"><div class="empty-state"><div class="big">No data yet</div></div></div>
       </section>
 
       <!-- ======== AI AGENTS ======== -->
@@ -3141,12 +3139,16 @@ function renderCancellations(){
       ? '<span class="tag green">Rebooked</span><div class="cell-sub" style="margin-top:4px">Next: '+escHtml(r.next)+'</div>'
       : '<span class="tag grey">Not rebooked</span><div class="cell-sub" style="margin-top:4px">No later appointment</div>');
     var reason = r.type==="cancelled" ? '&ldquo;'+escHtml(r.reason)+'&rdquo;' : escHtml(r.reason);
+    var seqCell;
+    if (r.seqState === "norecord") seqCell = '<div style="font-weight:700;font-size:14px">Not recorded</div><div class="cell-sub">No contact linked</div>';
+    else if (r.seqState === "none") seqCell = '<div style="font-weight:700;font-size:14px">No sequence</div><div class="cell-sub">No recovery sequence</div>';
+    else seqCell = '<div style="font-weight:700;font-size:14px">' + r.fu + ' follow-up' + (r.fu === 1 ? "" : "s") + '</div><div class="cell-sub">' + escHtml(r.seq) + '</div>';
     return '<div class="list-row cx-grid">'
       + '<div><button class="link-btn cell-main" style="padding:0;min-height:0;text-align:left" data-patient-link="'+r.pid+'">'+escHtml(p.name)+'</button><div style="margin-top:4px">'+typeTag+'</div></div>'
       + '<div><div style="font-weight:700;font-size:14px">'+r.when+'</div><div class="cell-sub">'+escHtml(r.physio)+'</div></div>'
       + '<div class="cell-sub" style="color:var(--ink-2)">'+reason+'</div>'
       + '<div>'+reb+'</div>'
-      + '<div><div style="font-weight:700;font-size:14px">'+r.fu+' follow-up'+(r.fu===1 ? "" : "s")+'</div><div class="cell-sub">'+escHtml(r.seq)+'</div></div></div>';
+      + '<div>'+seqCell+'</div></div>';
   }).join("");
   document.getElementById("cxEmpty").classList.toggle("hidden-row", cxList.length>0);
   var cxEmptyEl = document.getElementById("cxEmpty");
@@ -3194,16 +3196,24 @@ function renderComplaints(){
   bindPatientClicks(document.getElementById("crRefunds"));
 }
 
-/* ================= DISCHARGED PATIENTS (reactivated only) ================= */
-/* Only patients who booked again AFTER discharge. The discharge engine is
-   OFF in n8n, so this list is from historical data, not running sequences. */
+/* ================= DISCHARGED PATIENTS ================= */
+/* Live from sequence_instances with key DISCHARGE_RETRY (built in
+   applyLiveData). The discharge engine is OFF in n8n, so today this is
+   one QA row; when the engine runs, new instances appear here on their
+   own. The list covers every discharged patient, not only reactivated
+   ones — the "Booked again" KPI counts the reactivated subset. */
 var DC_ROWS = [];
+var DC_SEQ_VALUE = "—", DC_SEQ_SUB = "—", DC_BOOKED_SUB = "", DC_FOOT = "";
 
 function renderDischarged(){
   var el = document.getElementById("dcList"); if(!el) return;
   var rows = DC_ROWS.filter(function(r){ return inRange(r.rebookISO); });
-  document.getElementById("dcBooked").textContent = rows.length;
+  document.getElementById("dcBooked").textContent = rows.filter(function(r){ return r.rebooked; }).length;
   document.getElementById("dcTasks").textContent = rows.filter(function(r){ return r.tasks.length; }).length;
+  setText("dcSeq", DC_SEQ_VALUE);
+  setText("dcSeqSub", DC_SEQ_SUB);
+  setText("dcBookedSub", DC_BOOKED_SUB);
+  setText("dcFoot", DC_FOOT);
   el.innerHTML = rows.map(function(r){
     var p = enqPatient(r.pid);
     var tasks = r.tasks.length
@@ -3218,6 +3228,29 @@ function renderDischarged(){
   }).join("");
   document.getElementById("dcEmpty").classList.toggle("hidden-row", rows.length>0);
   bindPatientClicks(el);
+}
+
+/* ================= PAYMENTS ================= */
+/* Live deposit events from vw_journey_metrics_plus (GHL payment workflow
+   events, all time). Appointments carry no payment status in Supabase, so
+   there is no per-appointment payment data — only these event counts. */
+function renderPayments(){
+  var host = document.getElementById("payBody"); if (!host) return;
+  var rows = (typeof LIVE !== "undefined" && LIVE && LIVE.lists) ? (LIVE.lists.journey || null) : null;
+  function metric(key){
+    var found = null;
+    (rows || []).forEach(function(x){ if (x && String(x.metric_key) === key) found = x; });
+    return found;
+  }
+  var paid = metric("deposit_paid"), pend = metric("deposit_pending"), rel = metric("slot_released");
+  if (!paid && !pend && !rel){ host.innerHTML = '<div class="empty-state"><div class="big">No data yet</div></div>'; return; }
+  function card(label, m){
+    var all = m ? fmtNum(m.all_time_count || 0) : "—";
+    var d30 = m ? fmtNum(m.current_30d_count || 0) : "—";
+    return '<div class="kpi"><div class="k-label">' + label + '</div><div class="k-value num">' + all + '</div><div class="k-sub">' + d30 + ' in the last 30 days</div></div>';
+  }
+  host.innerHTML = '<div class="kpis kpis-3">' + card("Deposits paid", paid) + card("Deposits pending", pend) + card("Slots released", rel) + '</div>'
+    + '<p class="foot-note" style="text-align:left">GHL payment workflow events · all time. Appointments carry no payment status in Supabase, so per-appointment payment data is not available.</p>';
 }
 
 /* ================= TEAM & PACKAGES + PHYSIO PERFORMANCE ================= */
@@ -3261,17 +3294,7 @@ function renderTeam(){
    physio is not in the snapshot, so it shows —. */
 var PERF_MONTHS = {"2026-09":{"label":"Sep 2026","rows":{}},"2026-10":{"label":"Oct 2026","rows":{}},"2026-11":{"label":"Nov 2026","rows":{}}};
 
-/* Rebook rate is not in the snapshot (no rebook linkage), so it shows —. */
-var PERF_REBOOK = {"Ethan Redmond":"\u2014","Aadyaa Madhu":"\u2014","Lucy Byott":"\u2014","Arek Rogozinski":"\u2014","Stuart Goldfinch":"\u2014","Kate Bennett":"\u2014"};
 var PERF_MONTH = "2026-11";
-function perfComplaints(full, monthKey){
-  /* Complaint / refund tasks carry no physio in the snapshot — not derivable per physio. */
-  return "\u2014";
-}
-function perfTasksOverdue(full, monthKey){
-  /* Tasks carry no physio assignment in the snapshot — not derivable per physio. */
-  return "\u2014";
-}
 function renderPerformance(){
   var wrap = document.getElementById("perfList"); if(!wrap) return;
   var M = PERF_MONTHS[PERF_MONTH];
@@ -3286,9 +3309,9 @@ function renderPerformance(){
       + '<div class="num">'+r.n+'</div>'
       + '<div class="num">'+r.c+'</div>'
       + '<div class="num">'+r.d+'</div>'
-      + '<div class="num" style="font-weight:700">'+PERF_REBOOK[full]+'</div>'
-      + '<div class="num">'+perfComplaints(full, PERF_MONTH)+'</div>'
-      + '<div class="num">'+perfTasksOverdue(full, PERF_MONTH)+'</div>'
+      + '<div class="num" style="font-weight:700">'+r.rb+'</div>'
+      + '<div class="num">'+r.cr+'</div>'
+      + '<div class="num">'+r.od+'</div>'
       + '<div class="num">'+c.pending+'</div>'
       + '<div class="nd">No data yet</div></div>';
   }).join("");
@@ -3348,6 +3371,7 @@ function applyDateFilter(){
   renderCancellations();
   renderComplaints();
   renderDischarged();
+  renderPayments();
   if (typeof window.refreshUsersDateFilter === "function") window.refreshUsersDateFilter();
 }
 document.querySelectorAll("#datePills .pill").forEach(function(b){
@@ -4075,13 +4099,18 @@ function fetchAll(){
     });
   }
   var listJobs = [
-    gated(["patients","overview","owner-overview","enquiries","dnc","admin-today"], function(){ return listAll("contacts","id,first_name,last_name,email,phone_e164,dnc,created_at","created_at",false).then(function(d){ lists.contacts = d; }); }, function(d){ lists.contacts = d; }),
+    gated(["patients","overview","owner-overview","enquiries","dnc","admin-today"], function(){ return listAll("contacts","id,first_name,last_name,email,phone_e164,dnc,human_takeover,created_at","created_at",false).then(function(d){ lists.contacts = d; }); }, function(d){ lists.contacts = d; }),
     gated(["admin-today","overview","owner-overview","team","complaints"], function(){ return listAll("tasks",TASK_COLS,"created_at",false).then(function(d){ lists.tasks = d; }); }, function(d){ lists.tasks = d; }),
     gated(["appointments","overview","owner-overview","admin-today","unprocessed","patients","cancellations","team","performance","progress"], function(){ return listAll("appointments",APPT_COLS,"starts_at",false).then(function(d){ lists.appts = d; }); }, function(d){ lists.appts = d; }),
     gated(["enquiries","ai","overview","patients"], function(){ return listAll("interactions","id,contact_id,provider,channel,direction,outcome,summary,created_at","created_at",false).then(function(d){ lists.interactions = d; }); }, function(d){ lists.interactions = d; }),
     gated(["patients","enquiries","overview","owner-overview"], function(){ return listAll("referrals","id,contact_id,referred_by,detail,status,created_at","created_at",false).then(function(d){ lists.referrals = d; }); }, function(d){ lists.referrals = d; }),
     gated(["performance","progress","overview","owner-overview"], function(){ return listQ("dashboard_monthly_performance","report_month,attended,no_shows,cancellations","report_month",true,12).then(function(d){ lists.monthly = d; }); }, function(d){ lists.monthly = d; }),
-    gated(["patients","discharged"], function(){ return listAll("sequence_instances","id,contact_id,sequence_key,status,created_at","created_at",false).then(function(d){ lists.sequences = d; }); }, function(d){ lists.sequences = d; }),
+    gated(["patients","discharged","cancellations"], function(){ return listAll("sequence_instances","id,contact_id,sequence_key,status,current_stage,started_at,created_at","created_at",false).then(function(d){ lists.sequences = d; }); }, function(d){ lists.sequences = d; }),
+    /* Recovery-sequence definitions (display names + stage plans) and
+       stage events (follow-up counts) — the Cancellations "Recovery
+       sequence" column and the Discharged page read live from these. */
+    gated(["patients","discharged","cancellations"], function(){ return listAll("sequence_definitions","sequence_key,display_name,enabled,stage_plan","sequence_key",true).then(function(d){ lists.seqDefs = d; }); }, function(d){ lists.seqDefs = d; }),
+    gated(["patients","discharged","cancellations"], function(){ return listAll("sequence_events","sequence_instance_id,event_type,stage,occurred_at","occurred_at",false).then(function(d){ lists.seqEvents = d; }); }, function(d){ lists.seqEvents = d; }),
     gated(["team","performance","appointments","admin-today","unprocessed","my-appointments","my-patients","my-tasks"], function(){ return listQ("practicehub_practitioners","practitioner_id,name,active",null,false,50).then(function(d){ lists.practitioners = d; }); }, function(d){ lists.practitioners = d; }),
     /* Targeted sets — complaint / refund tasks by task_type, and cancelled /
        missed appointments by status, each fetched on its own so the page
@@ -4093,7 +4122,7 @@ function fetchAll(){
     /* Agency views — SLA overdue and journey / deposit metrics. Both
        resolve to null on failure; applyLiveData falls back gracefully. */
     gated(["admin-today","overview","owner-overview"], function(){ return fetchViewRows("vw_task_sla","task_id,status,is_overdue,sla_due_at","task_id").then(function(d){ lists.sla = d; }); }, function(d){ lists.sla = null; }),
-    gated(["appointments","overview","owner-overview"], function(){ return fetchViewRows("vw_journey_metrics_plus","*",null).then(function(d){ lists.journey = d; }); }, function(d){ lists.journey = null; }),
+    gated(["appointments","overview","owner-overview","discharged","payments"], function(){ return fetchViewRows("vw_journey_metrics_plus","*",null).then(function(d){ lists.journey = d; }); }, function(d){ lists.journey = null; }),
     /* My Work — the two scoped jobs. fetchMyAppts filters by the
        physio's own practitioner_id; fetchMyWork derives the patient
        list and tasks server-side (see helpers above). */
@@ -4610,6 +4639,56 @@ function applyLiveData(data){
       status: t.status === "open" ? "Open" : (t.status === "completed" ? "Done" : (t.status === "cancelled" ? "Cancelled" : humanize(t.status || ""))) });
   });
 
+  /* Recovery sequences — LIVE from sequence_instances + sequence_events +
+     sequence_definitions. Keys A–I are the recovery sequences (A No-show,
+     B Advance cancellation, C Late cancellation, D Cost, E Feeling better,
+     F Unwell, G Treatment concern, H Package/service, I Membership);
+     UAT-*, LOST_CHAT and DISCHARGE_RETRY are not recovery sequences and
+     never appear in this column. Per contact the active sequence wins
+     (waiting, then paused, then completed, suppressed, cancelled), ties
+     broken by latest created. Follow-ups = stage_executed events on the
+     chosen instance. Stage position comes from the definition's
+     stage_plan. */
+  var SEQ_DEF = {};
+  (lists.seqDefs || []).forEach(function(d){
+    if (!d || d.sequence_key == null) return;
+    var stages = [];
+    (d.stage_plan || []).forEach(function(s){ if (s && s.stage) stages.push(String(s.stage)); });
+    SEQ_DEF[String(d.sequence_key)] = { name: d.display_name || String(d.sequence_key), stages: stages };
+  });
+  var SEQ_EVENTS = {};
+  (lists.seqEvents || []).forEach(function(e){
+    if (!e || e.sequence_instance_id == null) return;
+    var k = String(e.sequence_instance_id);
+    SEQ_EVENTS[k] = (SEQ_EVENTS[k] || 0) + 1;
+  });
+  var RECOVERY_KEYS = { A: 1, B: 1, C: 1, D: 1, E: 1, F: 1, G: 1, H: 1, I: 1 };
+  var SEQ_RANK = { waiting: 0, paused: 1, completed: 2, suppressed: 3, cancelled: 4 };
+  function recoverySeqFor(cid){
+    if (cid == null) return null;
+    var best = null, bestRank = 99, bestTs = "";
+    (lists.sequences || []).forEach(function(s){
+      if (String(s.contact_id) !== String(cid)) return;
+      if (!RECOVERY_KEYS[String(s.sequence_key)]) return;
+      var r = (s.status != null && SEQ_RANK[s.status] != null) ? SEQ_RANK[s.status] : 5;
+      var ts = String(s.created_at || "");
+      if (r < bestRank || (r === bestRank && ts >= bestTs)){ best = s; bestRank = r; bestTs = ts; }
+    });
+    return best;
+  }
+  function seqLabel(inst){
+    if (!inst) return "";
+    var def = SEQ_DEF[String(inst.sequence_key)] || { name: String(inst.sequence_key), stages: [] };
+    var parts = [def.name];
+    var st = inst.current_stage ? String(inst.current_stage) : "";
+    if (st){
+      var idx = def.stages.indexOf(st);
+      parts.push(idx >= 0 ? ("Stage " + (idx + 1) + " of " + def.stages.length + " · " + st) : st);
+    }
+    if (inst.status) parts.push(humanize(inst.status));
+    return parts.join(" · ");
+  }
+
   /* Cancellations & DNAs — from their own targeted fetch by status.
      Rebooked is derived from the appointments already fetched: a row is
      rebooked when the same contact has any later appointment (starts_at
@@ -4634,10 +4713,94 @@ function applyLiveData(data){
       rebooked = laters.length > 0;
       if (rebooked) next = fmtDay(laters[0].starts_at);
     }
+    var seqInst = recoverySeqFor(a.contact_id);
+    var fu = null, seq = "", seqState = "ok";
+    if (a.contact_id == null){ seqState = "norecord"; seq = "Not recorded"; }
+    else if (!seqInst){ seqState = "none"; seq = "No sequence"; }
+    else { fu = SEQ_EVENTS[String(seqInst.id)] || 0; seq = seqLabel(seqInst); }
     return { pid: pidOf(a.contact_id), type: a.status === "missed" ? "missed" : "cancelled",
       dateISO: (a.cancel_date || a.starts_at || "").slice(0,10), when: fmtWhen(a.starts_at),
-      physio: pracName[a.practitioner_id] || "\u2014", reason: stripMarkup(a.cancel_reason || "No reason given"),
-      rebooked: rebooked, next: next, fu: "\u2014", seq: "None" };
+      mk: (a.starts_at || "").slice(0,7),
+      physio: pracName[a.practitioner_id] || "—", reason: stripMarkup(a.cancel_reason || "No reason given"),
+      rebooked: rebooked, next: next, fu: fu, seq: seq, seqState: seqState };
+  });
+
+  /* Discharged patients — LIVE from sequence_instances with key
+     DISCHARGE_RETRY. The discharge engine is OFF in n8n (audit-verified),
+     so today this is one QA row; when the engine runs, new instances
+     appear here automatically — no manual step. Booked again = the
+     contact has any appointment after the discharge instance started. */
+  DC_ROWS = [];
+  var dcTasksByContact = {};
+  (lists.tasks || []).forEach(function(t){
+    if (t.status === "open" && t.contact_id != null){
+      var k = String(t.contact_id);
+      if (!dcTasksByContact[k]) dcTasksByContact[k] = [];
+      dcTasksByContact[k].push(stripMarkup(trunc(t.title || "", 60)));
+    }
+  });
+  var dcSeq = (lists.sequences || []).filter(function(s){ return String(s.sequence_key) === "DISCHARGE_RETRY"; });
+  dcSeq.sort(function(a, b){ return String(a.created_at || "") < String(b.created_at || "") ? -1 : 1; });
+  DC_ROWS = dcSeq.map(function(s){
+    var cid = s.contact_id == null ? null : String(s.contact_id);
+    var dcDate = (s.started_at || s.created_at || "").slice(0,10);
+    var laters = cid ? (apptsByContact[cid] || []).filter(function(x){ return dcDate && x.starts_at && x.starts_at.slice(0,10) > dcDate; }) : [];
+    var rbk = laters.length > 0;
+    return { pid: pidOf(s.contact_id), rebookISO: dcDate,
+      discharged: dcDate ? fmtDay(dcDate) : "—",
+      rebooked: rbk,
+      rebook: rbk ? "Booked again" : "Not rebooked",
+      rebookSub: rbk ? fmtDay(laters[0].starts_at) : "No later appointment",
+      next: rbk ? fmtDay(laters[0].starts_at) : "—",
+      tasks: dcTasksByContact[cid] || [] };
+  });
+  /* Discharged KPIs + footnote — all from live data. */
+  var dcLast = dcSeq.length ? dcSeq[dcSeq.length - 1] : null;
+  DC_SEQ_VALUE = dcLast ? humanize(dcLast.status || "") : "—";
+  DC_SEQ_SUB = dcSeq.length ? ("DISCHARGE_RETRY · " + dcSeq.length + " sequence" + (dcSeq.length === 1 ? "" : "s")) : "No discharge sequence";
+  var dcRbN = DC_ROWS.filter(function(r){ return r.rebooked; }).length;
+  DC_BOOKED_SUB = dcRbN + " of " + DC_ROWS.length + " discharged";
+  var dcJm = {};
+  (lists.journey || []).forEach(function(r){ if (r && r.metric_key) dcJm[String(r.metric_key)] = r.all_time_count; });
+  DC_FOOT = "Reactivation events: " + fmtNum(dcJm.reactivation_sequence || 0)
+    + " · Discharged completed: " + fmtNum(dcJm.discharged_completed || 0)
+    + " · Dropped: " + fmtNum(dcJm.discharged_dropped || 0) + " (journey metrics, all time)";
+
+  /* Per-physio monthly "New" (first appointment with that physio),
+     rebook rate (cancelled + missed with a contact, rebooked = later
+     appointment exists), complaints/refunds, and current overdue tasks
+     — all derived from the fetched appointments and tasks, never the
+     snapshot. A physio with no linked cancellations in a month shows —. */
+  var PERF_NEW = {}, PERF_RB = {}, PERF_CR = {};
+  var firstWith = {};
+  (lists.appts || []).slice().sort(function(a, b){ return String(a.starts_at || "") < String(b.starts_at || "") ? -1 : 1; }).forEach(function(a){
+    if (a.contact_id == null || a.practitioner_id == null) return;
+    var fk = String(a.contact_id) + "|" + String(a.practitioner_id);
+    if (firstWith[fk]) return; firstWith[fk] = 1;
+    var fmk = (a.starts_at || "").slice(0,7), fnm = pracName[a.practitioner_id];
+    if (!fnm || fmk.length !== 7) return;
+    if (!PERF_NEW[fmk]) PERF_NEW[fmk] = {};
+    PERF_NEW[fmk][fnm] = (PERF_NEW[fmk][fnm] || 0) + 1;
+  });
+  CX_ROWS.forEach(function(r){
+    if (r.rebooked == null || !r.mk) return;
+    if (!PERF_RB[r.mk]) PERF_RB[r.mk] = {};
+    if (!PERF_RB[r.mk][r.physio]) PERF_RB[r.mk][r.physio] = { n: 0, r: 0 };
+    PERF_RB[r.mk][r.physio].n++;
+    if (r.rebooked) PERF_RB[r.mk][r.physio].r++;
+  });
+  (CR_TASKS || []).forEach(function(t){
+    var cmk = (t.dateISO || "").slice(0,7);
+    if (cmk.length !== 7) return;
+    if (!PERF_CR[cmk]) PERF_CR[cmk] = {};
+    PERF_CR[cmk][t.physio] = (PERF_CR[cmk][t.physio] || 0) + 1;
+  });
+  var PERF_OD = {};
+  ADMIN_ACTIONS.forEach(function(a){
+    if (!a.slaOverdue) return;
+    var ofull = a.pid ? contactPhysio[String(a.pid)] : null;
+    if (!ofull) return;
+    PERF_OD[ofull] = (PERF_OD[ofull] || 0) + 1;
   });
 
   /* Deposits — event counts from vw_journey_metrics_plus (GHL payment
@@ -4717,13 +4880,18 @@ function applyLiveData(data){
       initials: nmRaw.split(" ").map(function(w){ return w.charAt(0); }).join("").slice(0,2).toUpperCase(),
       av: avCycle[idx % avCycle.length], phone: cleanName(c.phone_e164 || ""), email: cleanName(c.email || ""), physio: "\u2014",
       appts: appts.length, interactions: ints.length, openTasks: tasks.filter(function(t){ return t.status === "open"; }).length,
-      last: fmtDay(lastTs), dnc: !!c.dnc, takeover: false, next: "\u2014",
+      last: fmtDay(lastTs), dnc: !!c.dnc, takeover: !!c.human_takeover, next: "\u2014",
       history: acts.length ? acts.map(function(h){ return { d: fmtWhen(h.ts), dot: h.dot, title: h.title, brief: h.brief, detail: h.detail, convId: h.convId || null }; })
         : [{ d: fmtWhen(c.created_at), dot: "grey", title: "Contact created", brief: "No appointments, interactions or tasks for this contact.", detail: "" }] };
     newLast[id] = (lastTs || "").slice(0,10);
     newFirst[id] = appts.length ? appts.map(function(a){ return (a.starts_at || "").slice(0,10); }).sort()[0] : (c.created_at || "").slice(0,10);
-    var seqs = (lists.sequences || []).filter(function(s){ return String(s.contact_id) === id; });
-    FILES[id] = { seq: seqs.length ? "Seq \u00b7 " + (seqs[0].status || "") : "None",
+    var fSeqs = (lists.sequences || []).filter(function(s){ return String(s.contact_id) === id; });
+    fSeqs.sort(function(a, b){
+      var ra = (a.status != null && SEQ_RANK[a.status] != null) ? SEQ_RANK[a.status] : 5;
+      var rb2 = (b.status != null && SEQ_RANK[b.status] != null) ? SEQ_RANK[b.status] : 5;
+      return (ra - rb2) || (String(b.created_at || "") < String(a.created_at || "") ? -1 : 1);
+    });
+    FILES[id] = { seq: fSeqs.length ? seqLabel(fSeqs[0]) : "No sequence",
       tasks: tasks.map(function(t){
         var md = t.metadata || {};
         var slaRow = slaMap ? slaMap[String(t.id)] : null;
@@ -4763,7 +4931,11 @@ function applyLiveData(data){
     var rows = {};
     (lists.practitioners || []).forEach(function(p){
       var r = (data.perf[mk] && data.perf[mk][p.name]) || { b: 0, c: 0, d: 0 };
-      rows[p.name] = { b: r.b, n: "\u2014", c: r.c, d: r.d };
+      var rb = (PERF_RB[mk] && PERF_RB[mk][p.name]) || null;
+      rows[p.name] = { b: r.b, n: (PERF_NEW[mk] && PERF_NEW[mk][p.name]) || 0, c: r.c, d: r.d,
+        rb: rb ? Math.round(100 * rb.r / rb.n) + "%" : "—",
+        cr: (PERF_CR[mk] && PERF_CR[mk][p.name]) || 0,
+        od: PERF_OD[p.name] || 0 };
     });
     PERF_MONTHS[mk] = { label: MONL[parseInt(mk.slice(5,7),10) - 1] + " " + mk.slice(0,4), rows: rows };
   });
@@ -4771,7 +4943,7 @@ function applyLiveData(data){
   ["2026-09","2026-10","2026-11"].forEach(function(mk){
     if (!PERF_MONTHS[mk]){
       var zrows = {};
-      (lists.practitioners || []).forEach(function(p){ zrows[p.name] = { b: 0, n: "\u2014", c: 0, d: 0 }; });
+      (lists.practitioners || []).forEach(function(p){ zrows[p.name] = { b: 0, n: 0, c: 0, d: 0, rb: "—", cr: 0, od: PERF_OD[p.name] || 0 }; });
       PERF_MONTHS[mk] = { label: mk, rows: zrows };
     }
   });
@@ -4933,6 +5105,16 @@ function updateLiveTotals(counts, lists){
   }
   setText("cxCanc", fmtNum(counts.apptsCancelled));
   setText("cxDna", fmtNum(counts.apptsMissed));
+  /* Rebook rate — from the same appointment derivation as the
+     Cancellations page: linked = cancelled/DNA rows with a contact
+     (rebooking is only observable there); rebooked = a later
+     appointment exists. 33 of 87 linked, verified 28 Nov 2026. */
+  var cxLinked = CX_ROWS.filter(function(r){ return r.rebooked !== null; });
+  var cxRb = cxLinked.filter(function(r){ return r.rebooked; }).length;
+  setText("ooRebookRate", cxLinked.length ? Math.round(100 * cxRb / cxLinked.length) + "%" : "—");
+  setText("ooRebookRateSub", cxRb + " of " + cxLinked.length + " linked cancellations rebooked · all time");
+  setText("ooCancelNoRebook", fmtNum(cxLinked.length - cxRb));
+  setText("ooCancelNoRebookSub", "linked cancellations not rebooked · all time");
   setText("crComp", fmtNum(counts.tasksComplaint));
   setText("crRef", fmtNum(counts.tasksRefund));
   setText("dncKpi", fmtNum(counts.contactsDnc));
