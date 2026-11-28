@@ -4504,6 +4504,34 @@ function applyLiveData(data){
     MY_TASKS_DONE.sort(function(x, y){ return (x.createdISO < y.createdISO ? 1 : -1); });
     MY_TASKS_CANCELLED.sort(function(x, y){ return (x.createdISO < y.createdISO ? 1 : -1); });
   }
+  /* SLA map from vw_task_sla — null when the view fetch failed, in
+     which case every task falls back to the old due-date overdue test.
+     This MUST run before renderMyWork() below: the My Tasks chips are
+     computed in that first render, and when this patch ran after it the
+     chips read the created-date fallback (982 overdue) instead of the
+     SLA-based count (953) until the user navigated away and back. */
+  var slaMap = null;
+  if (lists.sla){
+    slaMap = {};
+    lists.sla.forEach(function(r){ if (r.task_id != null) slaMap[String(r.task_id)] = r; });
+  }
+  /* My Tasks detail: fill the SLA due date where the view has one
+     (owners only — physios never fetch vw_task_sla, so theirs stays ""). */
+  if (slaMap){
+    [MY_TASKS, MY_TASKS_DONE, MY_TASKS_CANCELLED].forEach(function(list){
+      (list || []).forEach(function(it){
+        var r = slaMap[String(it.id)];
+        if (r && r.sla_due_at) it.slaLabel = fmtWhen(r.sla_due_at);
+        /* Same SLA overdue rule as ADMIN_ACTIONS. Without this the
+           My Tasks items kept slaOverdue null, so taskOverdue() fell
+           back to the created-date test and counted 982 overdue
+           against Admin Today's SLA-based 953. Physios never fetch
+           the view, so their slaOverdue stays null and the fallback
+           stands for them. */
+        it.slaOverdue = (r && r.sla_due_at != null) ? !!r.is_overdue : !!(it.dueISO && it.dueISO < TODAY_ISO);
+      });
+    });
+  }
   renderMyWork();
 
   /* Appointments */
@@ -4544,30 +4572,6 @@ function applyLiveData(data){
      for tasks with no SLA rule or when the view cannot be fetched.
      Completion dates likewise use the London calendar date
      (londonISO), and the completed on-time / late logic is unchanged. */
-  /* SLA map from vw_task_sla — null when the view fetch failed, in
-     which case every task falls back to the old due-date overdue test. */
-  var slaMap = null;
-  if (lists.sla){
-    slaMap = {};
-    lists.sla.forEach(function(r){ if (r.task_id != null) slaMap[String(r.task_id)] = r; });
-  }
-  /* My Tasks detail: fill the SLA due date where the view has one
-     (owners only — physios never fetch vw_task_sla, so theirs stays ""). */
-  if (slaMap){
-    [MY_TASKS, MY_TASKS_DONE, MY_TASKS_CANCELLED].forEach(function(list){
-      (list || []).forEach(function(it){
-        var r = slaMap[String(it.id)];
-        if (r && r.sla_due_at) it.slaLabel = fmtWhen(r.sla_due_at);
-        /* Same SLA overdue rule as ADMIN_ACTIONS. Without this the
-           My Tasks items kept slaOverdue null, so taskOverdue() fell
-           back to the created-date test and counted 982 overdue
-           against Admin Today's SLA-based 953. Physios never fetch
-           the view, so their slaOverdue stays null and the fallback
-           stands for them. */
-        it.slaOverdue = (r && r.sla_due_at != null) ? !!r.is_overdue : !!(it.dueISO && it.dueISO < TODAY_ISO);
-      });
-    });
-  }
   ADMIN_ACTIONS = [];
   COMPLETED_TASKS = [];
   CANCELLED_TASKS = [];
