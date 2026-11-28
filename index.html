@@ -443,6 +443,8 @@ h1,h2,h3{font-family:"Fraunces",Georgia,serif;font-weight:600;line-height:1.15;m
 .prog-legend{display:flex;gap:16px;flex-wrap:wrap;margin:14px 0 2px}
 .prog-legend span{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
 .prog-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.prog-group-head{font-weight:800;font-size:14.5px;margin:18px 0 6px}
+.prog-group-head:first-child{margin-top:2px}
 .nd{color:var(--muted);font-size:12px;font-weight:700}
 .team-counts{display:flex;gap:16px;flex-wrap:wrap;font-size:13.5px;color:var(--ink-2);margin-top:2px}
 .team-counts b{color:var(--ink)}
@@ -1028,6 +1030,8 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
             <span class="spacer"></span>
             <span class="cell-sub" id="enqRangeNote"></span>
           </div>
+          <div class="toolbar"><span class="cell-sub">Source</span><div class="pills" id="enqSourcePills"></div></div>
+          <div class="toolbar"><span class="cell-sub">Outcome</span><div class="pills" id="enqOutcomePills"></div></div>
           <h3 style="font-size:19px;margin:0 0 6px">Enquiries by source</h3>
           <p style="font-size:13.5px;color:var(--muted);margin:0 0 12px" id="enqTableNote">New patients</p>
           <div class="list-card" style="margin-bottom:14px">
@@ -1306,6 +1310,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
         </div>
         <div class="panel">
           <h3>Per patient</h3>
+          <div class="toolbar" style="margin-bottom:10px"><span class="cell-sub">Physio</span><select class="select" id="progressPhysioFilter" aria-label="Filter patients by physiotherapist"><option value="all">All physios</option><option>Ethan Redmond</option><option>Aadyaa Madhu</option><option>Lucy Byott</option><option>Arek Rogozinski</option><option>Stuart Goldfinch</option><option>Kate Bennett</option><option value="Not assigned">Not assigned</option></select><span class="spacer"></span><span class="cell-sub">Grouped by most recent appointment &middot; all time</span></div>
           <div id="progressList"></div>
         </div>
       </section>
@@ -2112,14 +2117,41 @@ renderAppts();
    fetch filled it — so the Per patient section stayed empty forever.
    Now a named function, re-run after every live load (see applyLiveData),
    so the list shows the real per-patient counts. */
+/* ================= PROGRESS LIST ================= */
+/* Was an IIFE that ran ONCE at page load from PATIENTS before the live
+   fetch filled it — so the Per patient section stayed empty forever.
+   Now a named function, re-run after every live load (see applyLiveData),
+   so the list shows the real per-patient counts. Grouped by physio
+   (most recent appointment — same derivation as the By physio Patients
+   column, so the counts agree); the physio filter narrows the list.
+   The list is ALL TIME: changing the month updates the chart + By physio
+   table but leaves this list and its filter untouched. */
+var PROG_PATIENT_PHYSIO = "all";
 function renderProgressList(){
-  var html = "";
+  var groups = {};
+  var order = (typeof TEAM_ORDER !== "undefined" && TEAM_ORDER.length) ? TEAM_ORDER.slice() : [];
   Object.keys(PATIENTS).forEach(function(id){
     var p = PATIENTS[id];
     var physio = ((typeof CONTACT_PHYSIO !== "undefined") && CONTACT_PHYSIO[id]) ? CONTACT_PHYSIO[id] : p.physio;
-    html += '<div class="row-item" data-patient="'+id+'"><span class="avatar sm '+p.av+'">'+p.initials+'</span>'
-      + '<div class="row-main"><div class="row-title">'+escHtml(p.name)+'</div><div class="row-sub">'+escHtml(physio)+'</div></div>'
-      + '<div class="row-side"><div class="t num">'+p.appts+' appts · '+p.interactions+' calls</div></div>'+CHEV+'</div>';
+    var key = (physio && physio !== "—") ? physio : "Not assigned";
+    if (!groups[key]) groups[key] = [];
+    groups[key].push({ id: id, p: p, physio: physio });
+  });
+  var keys = order.filter(function(n){ return groups[n]; });
+  Object.keys(groups).sort().forEach(function(k){ if (k !== "Not assigned" && keys.indexOf(k) === -1) keys.push(k); });
+  if (groups["Not assigned"]) keys.push("Not assigned");
+  var html = "";
+  keys.forEach(function(k){
+    if (PROG_PATIENT_PHYSIO !== "all" && PROG_PATIENT_PHYSIO !== k) return;
+    var list = groups[k];
+    list.sort(function(a, b){ return a.p.name < b.p.name ? -1 : (a.p.name > b.p.name ? 1 : 0); });
+    html += '<div class="prog-group-head">' + escHtml(k) + ' \u00b7 ' + list.length + (list.length === 1 ? ' patient' : ' patients') + '</div>';
+    list.forEach(function(it){
+      var p = it.p;
+      html += '<div class="row-item" data-patient="'+it.id+'"><span class="avatar sm '+p.av+'">'+p.initials+'</span>'
+        + '<div class="row-main"><div class="row-title">'+escHtml(p.name)+'</div><div class="row-sub">'+escHtml(it.physio)+'</div></div>'
+        + '<div class="row-side"><div class="t num">'+p.appts+' appts \u00b7 '+p.interactions+' calls</div></div>'+CHEV+'</div>';
+    });
   });
   var el = document.getElementById("progressList");
   if (!el) return;
@@ -2128,6 +2160,8 @@ function renderProgressList(){
 }
 window.renderProgressList = renderProgressList;
 renderProgressList();
+var progPhysioSel = document.getElementById("progressPhysioFilter");
+if (progPhysioSel) progPhysioSel.addEventListener("change", function(){ PROG_PATIENT_PHYSIO = progPhysioSel.value; renderProgressList(); });
 
 /* ================= SEARCH ================= */
 /* The search box must always start empty — never let a browser-restored or
@@ -2304,7 +2338,10 @@ function openPhysio(name){
   }).join("") : '<div class="empty-note">No tasks listed for '+full+' in this date range.</div>';
   /* This physio's patients only (live snapshot). */
   var myPatients = [];
-  Object.keys(PATIENTS).forEach(function(k){ if(PATIENTS[k].physio===full) myPatients.push({pid:k, p:PATIENTS[k]}); });
+  /* PATIENTS[].physio is always "—" in the snapshot, so match by the
+     via-patient practitioner map (most recent appointment) — the same
+     derivation as the Progress grouped list, so the counts agree. */
+  Object.keys(PATIENTS).forEach(function(k){ var ph = ((typeof CONTACT_PHYSIO !== "undefined") && CONTACT_PHYSIO[k]) ? CONTACT_PHYSIO[k] : PATIENTS[k].physio; if(ph===full) myPatients.push({pid:k, p:PATIENTS[k]}); });
   Object.keys(window.EXTRA_PATIENTS||{}).forEach(function(k){ var p=(window.EXTRA_PATIENTS||{})[k]; if(p && p.physio===full) myPatients.push({pid:k, p:p}); });
   var patRows = myPatients.length ? myPatients.map(function(m){
     return '<div class="list-row clickable" data-patient="'+m.pid+'" style="grid-template-columns:1.4fr .7fr 1fr"><div class="cell-main">'+escHtml(m.p.name)+'</div><div class="num">'+m.p.appts+' appts</div><div class="cell-sub" style="text-align:right">Next: '+escHtml(m.p.next)+'</div></div>';
@@ -2455,12 +2492,13 @@ function renderStatusPills(containerId, defs, counts, activeKey, onPick){
 var adminTaskFilter = "all";
 var enqOutcomeFilter = "all";
 var enqBucketFilter = "all";
+var enqSourceFilter = "all";
 var cxTypeFilter = "all";
 var cxPhysioFilter = "all";
 var crStatusFilter = "all";
 function resetStatusFilters(){
   try {
-    adminTaskFilter = "all"; enqOutcomeFilter = "all"; enqBucketFilter = "all";
+    adminTaskFilter = "all"; enqOutcomeFilter = "all"; enqBucketFilter = "all"; enqSourceFilter = "all";
     cxTypeFilter = "all"; cxPhysioFilter = "all"; crStatusFilter = "all";
     if (typeof myTaskFilter !== "undefined") myTaskFilter = "all";
     if (typeof myApptFilter !== "undefined") myApptFilter = "all";
@@ -2663,8 +2701,21 @@ var enqTab = "new";
 var enqSrc = null;
 function enqPatient(pid){ return PATIENTS[pid] || (window.EXTRA_PATIENTS||{})[pid] || {name: pid ? pid : "No contact linked"}; }
 function enqInTab(e){ return enqTab==="new" ? e.isNew : !e.isNew; }
+/* Page-level Enquiries filters (source + outcome). The outcome values
+   are the humanised outcome strings; booked rows carry outcome
+   "Appointment booked" and get their own Booked chip (__booked__) so
+   they never hide inside Other. __other__ = a not-booked outcome
+   outside the current top 5. */
+var enqOutcomeTop = [];
+function enqSourceMatch(e){ return enqSourceFilter === "all" || e.src === enqSourceFilter; }
+function enqOutcomeMatch(e){
+  if (enqOutcomeFilter === "all") return true;
+  if (enqOutcomeFilter === "__booked__") return !!e.booked;
+  if (enqOutcomeFilter === "__other__") return !e.booked && enqOutcomeTop.indexOf(e.outcome || "—") === -1;
+  return (e.outcome || "—") === enqOutcomeFilter;
+}
 function enqFiltered(srcKey){
-  return ENQUIRIES.filter(function(e){ return inRange(e.date) && enqInTab(e) && (!srcKey || e.src===srcKey); });
+  return ENQUIRIES.filter(function(e){ return inRange(e.date) && enqInTab(e) && (!srcKey || e.src===srcKey) && enqOutcomeMatch(e); });
 }
 function enqPct(b, t){ return t ? Math.round(b/t*100)+"%" : "—"; }
 function enqSourceDef(key){
@@ -2739,21 +2790,9 @@ function enqTopic(e){
 function renderNotBooked(tabbed){
   var wrap = document.getElementById("enqNotBooked"); if(!wrap) return;
   var nb = (tabbed||[]).filter(function(e){ return !e.booked; }).slice().sort(function(a,b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
-  /* Outcome chips — the top 5 real outcomes in this tab + range, plus
-     Other for the long tail (the outcome column holds ~30 distinct
-     values — too many for one chip each). The chips filter the whole
-     not-booked section below (buckets, table, lost reasons); their
-     counts come from the unfiltered set. A stale filter value (an
-     outcome that fell out of the top 5 after a date/tab change)
-     resets to All. */
-  var oc = topOutcomes(nb, 5, function(e){ return e.outcome || "—"; });
-  if (enqOutcomeFilter !== "all" && enqOutcomeFilter !== "__other__" && oc.top.indexOf(enqOutcomeFilter) === -1) enqOutcomeFilter = "all";
-  var ocDefs = [{key:"all", label:"All"}].concat(oc.top.map(function(k){ return {key:k, label:k}; }));
-  if (oc.other > 0) ocDefs.push({key:"__other__", label:"Other"});
-  var ocCounts = { all: nb.length, __other__: oc.other };
-  oc.top.forEach(function(k){ ocCounts[k] = oc.counts[k]; });
-  if (enqOutcomeFilter === "__other__") nb = nb.filter(function(e){ return oc.top.indexOf(e.outcome || "—") === -1; });
-  else if (enqOutcomeFilter !== "all") nb = nb.filter(function(e){ return (e.outcome || "—") === enqOutcomeFilter; });
+  /* Outcome + source filters are applied upstream (renderEnquiries
+     narrows `tabbed`); nb here is already the filtered not-booked set.
+     Bucket counts below come from that filtered set, as before. */
   var counts = {ai:0, human:0, lost:0, dnc:0};
   nb.forEach(function(e){ counts[enqBucket(e)]++; });
   /* Bucket filter — applied AFTER the counts above, so the bucket
@@ -2773,7 +2812,7 @@ function renderNotBooked(tabbed){
     if (enqBucketFilter !== "all") NB_BUCKETS.forEach(function(b){ if (b.key === enqBucketFilter) bDef = b; });
     tableHtml = bDef
       ? '<div class="empty-note">No ' + bDef.label + ' enquiries in this range.</div>'
-      : (enqOutcomeFilter === "all"
+      : (enqOutcomeFilter === "all" || enqOutcomeFilter === "__booked__"
         ? '<div class="empty-note">Everyone in this range booked — nothing waiting.</div>'
         : '<div class="empty-note">No enquiries with this outcome in this range.</div>');
   } else {
@@ -2801,13 +2840,11 @@ function renderNotBooked(tabbed){
   }).join("");
   wrap.innerHTML = '<div class="panel-head"><h3>Enquiries not booked</h3><span class="cell-sub num">'+nb.length+' not booked</span></div>'
     + '<p class="nb-note">A lead is marked lost after 3 attempts with no reply, or when they say no.</p>'
-    + '<div class="toolbar"><div class="pills" id="enqOutcomePills"></div></div>'
     + bucketsHtml
     + '<div style="margin-top:16px;border-top:1px solid var(--line)">'+tableHtml+'</div>'
     + '<div style="font-weight:800;font-size:14.5px;margin:20px 0 4px">Lost reasons</div>'
     + lostHtml
     + '<p class="nb-note" style="margin:12px 0 0">Lost leads get one more message after 30 days before they&rsquo;re closed.</p>';
-  renderStatusPills("enqOutcomePills", ocDefs, ocCounts, enqOutcomeFilter, function(k){ enqOutcomeFilter = k; renderEnquiries(); });
   bindPatientClicks(wrap);
   var nmb = document.getElementById("nbMore");
   if(nmb) nmb.addEventListener("click", function(){ nbShowN += 60; renderEnquiries(); });
@@ -2826,15 +2863,47 @@ function renderNotBooked(tabbed){
 var nbShowN = 60;
 function renderEnquiries(){
   var kpiEl = document.getElementById("enqKpis"); if(!kpiEl) return;
-  var all = ENQUIRIES.filter(function(e){ return inRange(e.date); });
+  /* Page-level filters — source + outcome — narrow the WHOLE level-1
+     view (KPIs, tab counts, source table, not-booked section). Each
+     filter's chip counts come from the set filtered by the OTHER
+     filter, never by itself. The "New patients" KPI is a month fact
+     from FIRST_APPT (no source/outcome on it) and stays unfiltered. */
+  var inTabRange = ENQUIRIES.filter(function(e){ return inRange(e.date) && enqInTab(e); });
+  /* Outcome chips first: their top 5 comes from the source-filtered
+     set, so the top list is fresh before enqOutcomeMatch runs. */
+  var ocBase = inTabRange.filter(enqSourceMatch);
+  var oc = topOutcomes(ocBase.filter(function(e){ return !e.booked; }), 5, function(e){ return e.outcome || "—"; });
+  enqOutcomeTop = oc.top;
+  var bookedN = ocBase.filter(function(e){ return e.booked; }).length;
+  if (enqOutcomeFilter !== "all" && enqOutcomeFilter !== "__other__" && enqOutcomeFilter !== "__booked__" && oc.top.indexOf(enqOutcomeFilter) === -1) enqOutcomeFilter = "all";
+  if (enqOutcomeFilter === "__other__" && oc.other === 0) enqOutcomeFilter = "all";
+  var ocDefs = [{key:"all", label:"All"}];
+  var ocCounts = { all: ocBase.length };
+  if (bookedN > 0){ ocDefs.push({key:"__booked__", label:"Booked"}); ocCounts["__booked__"] = bookedN; }
+  oc.top.forEach(function(k){ ocDefs.push({key:k, label:k}); ocCounts[k] = oc.counts[k]; });
+  if (oc.other > 0){ ocDefs.push({key:"__other__", label:"Other"}); ocCounts["__other__"] = oc.other; }
+  /* Source chips: only sources with rows in this tab + range (after
+     the outcome filter), with counts. Referrals has no ENQUIRIES rows
+     (0 in Supabase today) so it gets no chip; it appears automatically
+     if referrals are added. */
+  var srcBase = inTabRange.filter(enqOutcomeMatch);
+  var srcDefs = [{key:"all", label:"All"}];
+  var srcCounts = { all: srcBase.length };
+  ENQ_SOURCES.forEach(function(x){
+    var n = srcBase.filter(function(e){ return e.src === x.key; }).length;
+    if (n > 0){ srcDefs.push({key:x.key, label:x.name}); srcCounts[x.key] = n; }
+  });
+  if (enqSourceFilter !== "all" && !srcCounts.hasOwnProperty(enqSourceFilter)) enqSourceFilter = "all";
+  var all = ENQUIRIES.filter(function(e){ return inRange(e.date) && enqSourceMatch(e) && enqOutcomeMatch(e); });
   var newC = all.filter(function(e){ return e.isNew; }).length;
   var exC = all.length - newC;
   var tabbed = all.filter(enqInTab);
   var booked = tabbed.filter(function(e){ return e.booked; }).length;
   var total = tabbed.length;
   /* One "booked" definition everywhere: an appointment booked from an AI
-     interaction. This headline counts every enquiry in range (both tabs),
-     so it always matches the AI Agents page total. */
+     interaction. With no filter this headline counts every enquiry in
+     range (both tabs), so it matches the AI Agents page total; with a
+     source/outcome filter it counts only the filtered set. */
   var bookedAll = all.filter(function(e){ return e.booked; }).length;
   var b = rangeBounds(); var endISO = b ? b[1] : TODAY_ISO; var mk = endISO.slice(0,7);
   var MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -2854,7 +2923,7 @@ function renderEnquiries(){
   document.querySelector('#enqTabs [data-enqtab="existing"]').textContent = "Existing patients · " + exC;
   document.getElementById("enqRangeNote").textContent = rangeText();
   document.getElementById("enqTableNote").textContent = enqTab==="new" ? "New patients" : "Existing patients";
-  var html = ENQ_SOURCES.map(function(s){
+  var html = ENQ_SOURCES.filter(function(s){ return enqSourceFilter === "all" || s.key === enqSourceFilter; }).map(function(s){
     var rows = enqFiltered(s.key);
     var bk = rows.filter(function(e){ return e.booked; }).length;
     var conv = rows.length ? Math.round(bk/rows.length*100) : null;
@@ -2866,6 +2935,7 @@ function renderEnquiries(){
       + '<div class="num'+(conv!==null && conv<25 ? " pct-low" : "")+'" style="text-align:right;font-weight:800">'+(conv===null ? "—" : conv+"%")+'</div>'
       + CHEV + '</div>';
   }).join("");
+  if (enqSourceFilter === "all") {
   html += ENQ_NODATA.map(function(s){
     return '<div class="list-row clickable enq-src" data-src="'+s.key+'" style="grid-template-columns:1.6fr .6fr .6fr .6fr .8fr 24px">'
       + '<div><div class="cell-main">'+s.name+'</div><div class="cell-sub">'+s.note+'</div></div>'
@@ -2892,11 +2962,14 @@ function renderEnquiries(){
       + '<div class="num" style="text-align:right;font-weight:800">'+(conv===null ? "—" : conv+"%")+'</div>'
       + CHEV + '</div>';
   })();
+  }
   var wrap = document.getElementById("enqSources");
   wrap.innerHTML = html;
   wrap.querySelectorAll("[data-src]").forEach(function(row){
     row.addEventListener("click", function(){ openEnqSource(row.getAttribute("data-src")); });
   });
+  renderStatusPills("enqSourcePills", srcDefs, srcCounts, enqSourceFilter, function(k){ enqSourceFilter = k; renderEnquiries(); });
+  renderStatusPills("enqOutcomePills", ocDefs, ocCounts, enqOutcomeFilter, function(k){ enqOutcomeFilter = k; renderEnquiries(); });
   renderNotBooked(tabbed);
   if(enqSrc) renderEnqLevel2();
 }
@@ -2924,6 +2997,7 @@ document.querySelectorAll("#enqTabs .pill").forEach(function(btn){
     enqTab = btn.getAttribute("data-enqtab");
     enqOutcomeFilter = "all";
     enqBucketFilter = "all";
+    enqSourceFilter = "all";
     renderEnquiries();
   });
 });
@@ -4992,12 +5066,21 @@ function renderProgressMonth(){
     var M = (typeof PERF_MONTHS !== "undefined") ? PERF_MONTHS[mk] : null;
     if (!M || !M.rows){ physRows.innerHTML = '<div class="empty-note">No per-physio data for this month.</div>'; return; }
     var order = (typeof TEAM_ORDER !== "undefined" && TEAM_ORDER.length) ? TEAM_ORDER : Object.keys(M.rows);
-    var rowsHtml = '<div class="list-head" style="grid-template-columns:1.4fr .8fr .8fr .8fr"><span>Physio</span><span>Booked</span><span>Cancelled</span><span style="text-align:right">No-shows</span></div>';
+    /* Patients column: distinct patients per physio, ALL TIME, by most
+       recent appointment (CONTACT_PHYSIO) — the same derivation as the
+       grouped Per patient list, so the two counts always match.
+       Only contact-linked patients are covered (most appointments have
+       no contact linked); the footnote below says so. */
+    var patCounts = {};
+    if (typeof CONTACT_PHYSIO !== "undefined") Object.keys(CONTACT_PHYSIO).forEach(function(id){ var n = CONTACT_PHYSIO[id]; if (n) patCounts[n] = (patCounts[n] || 0) + 1; });
+    var rowsHtml = '<div class="list-head" style="grid-template-columns:1.4fr .7fr .7fr .7fr .7fr"><span>Physio</span><span>Booked</span><span>Cancelled</span><span>No-shows</span><span style="text-align:right">Patients</span></div>';
     order.forEach(function(full){
       var r = M.rows[full]; if (!r) return;
-      rowsHtml += '<div class="list-row" style="grid-template-columns:1.4fr .8fr .8fr .8fr"><div class="cell-main">' + esc(full) + '</div><div class="num" style="font-weight:800">' + fmtNum(r.b) + '</div><div class="num">' + fmtNum(r.c) + '</div><div class="num" style="text-align:right">' + fmtNum(r.d) + "</div></div>";
+      rowsHtml += '<div class="list-row" style="grid-template-columns:1.4fr .7fr .7fr .7fr .7fr"><div><button class="link-btn cell-main" style="padding:0;min-height:0" data-physio="'+esc(full)+'">'+esc(full)+'</button></div><div class="num" style="font-weight:800">' + fmtNum(r.b) + '</div><div class="num">' + fmtNum(r.c) + '</div><div class="num">' + fmtNum(r.d) + '</div><div class="num" style="text-align:right;font-weight:800">' + fmtNum(patCounts[full] || 0) + "</div></div>";
     });
+    rowsHtml += '<p class="foot-note" style="text-align:left">Patients = distinct patients per physio, all time, by most recent appointment (contact-linked only).</p>';
     physRows.innerHTML = rowsHtml;
+    bindPhysioClicks(physRows);
   }
 }
 function rebuildDncList(contacts){
