@@ -955,13 +955,22 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
         </div>
         <div class="toolbar">
           <div class="pills" id="patientPills">
-            <button class="pill active" data-pfilter="all">All</button>
+            <button class="pill active" data-pfilter="all">All · <span id="pillPatAll">—</span></button>
             <button class="pill" data-pfilter="dnc">Do Not Call · <span id="pillDnc">—</span></button>
-            <button class="pill" data-pfilter="takeover">Human takeover · 0</button>
-            <button class="pill" data-pfilter="tasks">With open tasks</button>
+            <button class="pill" data-pfilter="takeover">Human takeover · <span id="pillPatTake">—</span></button>
+            <button class="pill" data-pfilter="tasks">With open tasks · <span id="pillPatTasks">—</span></button>
           </div>
           <span class="spacer"></span>
           <span class="cell-sub" id="patientCount"></span>
+          <select class="select" id="patientPhysioFilter" aria-label="Filter by physiotherapist">
+            <option value="all">All physios</option>
+            <option>Ethan Redmond</option>
+            <option>Aadyaa Madhu</option>
+            <option>Lucy Byott</option>
+            <option>Arek Rogozinski</option>
+            <option>Stuart Goldfinch</option>
+            <option>Kate Bennett</option>
+          </select>
         </div>
         <div class="list-card">
           <div class="list-head" style="grid-template-columns:1.6fr .8fr .9fr .8fr 1fr">
@@ -1090,6 +1099,19 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
           <div class="panel-head"><h3>Cancellation reasons</h3><span class="cell-sub">Grouped from free-text cancel_reason</span></div>
           <div id="cxReasons"></div>
         </div>
+        <div class="toolbar">
+          <div class="pills" id="cxPills"></div>
+          <span class="spacer"></span>
+          <select class="select" id="cxPhysioFilter" aria-label="Filter by physiotherapist">
+            <option value="all">All physios</option>
+            <option>Ethan Redmond</option>
+            <option>Aadyaa Madhu</option>
+            <option>Lucy Byott</option>
+            <option>Arek Rogozinski</option>
+            <option>Stuart Goldfinch</option>
+            <option>Kate Bennett</option>
+          </select>
+        </div>
         <div class="list-card">
           <div class="list-head cx-grid">
             <span>Patient</span><span>Was booked</span><span>Reason (as stored)</span><span>Rebooked · next</span><span>Follow-ups · sequence</span>
@@ -1110,6 +1132,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
           <div class="kpi"><div class="k-label">Open · listed</div><div class="k-value num" id="crOpen">—</div></div>
           <div class="kpi"><div class="k-label">Completed · listed</div><div class="k-value num" id="crDone">—</div><div class="k-sub" id="crCancSub"></div></div>
         </div>
+        <div class="toolbar"><div class="pills" id="crPills"></div></div>
         <h3 style="font-size:19px;margin:0 0 12px">Complaints <span class="cell-sub" style="font-family:Manrope,sans-serif">· <span id="crCompHead">—</span></span></h3>
         <div class="list-card" style="margin-bottom:28px">
           <div class="list-head cr-grid">
@@ -1324,6 +1347,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
             <div id="adminTypeList"><div class="empty-note">No data yet</div></div>
           </div>
         </div>
+        <div class="toolbar"><div class="pills" id="adminTaskPills"></div></div>
         <div class="panel">
           <div class="task-group-label" style="color:var(--red)">Needs action</div>
           <div id="adminAllTasks"><div class="empty-note">No data yet</div></div>
@@ -1338,6 +1362,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
         <div class="panel" id="myApptUnmapped" hidden>
           <div class="empty-note">No physio linked to this account — ask the owner.</div>
         </div>
+        <div class="toolbar" id="myApptPillsBar"><div class="pills" id="myApptPills"></div></div>
         <div class="list-card" id="myApptCard">
           <div class="list-head" style="grid-template-columns:1.5fr 1.2fr .8fr">
             <span>Patient</span><span>Appointment</span><span style="text-align:right">Status</span>
@@ -1377,6 +1402,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
         <div class="panel" id="myTaskUnmapped" hidden>
           <div class="empty-note">No physio linked to this account — ask the owner.</div>
         </div>
+        <div class="toolbar" id="myTaskPillsBar"><div class="pills" id="myTaskPills"></div></div>
         <div class="panel" id="myTaskOpenPanel" style="margin-bottom:22px">
           <div class="panel-head"><h3>Open tasks</h3></div>
           <div class="action-head"><span></span><span>Status</span><span>Patient</span><span>Action</span><span>Why</span><span>Opened</span><span>Outcome</span></div>
@@ -1611,6 +1637,9 @@ function fmtDur(s){ var m=Math.floor(s/60), r=s%60; return m+":"+(r<10?"0":"")+r
 /* Live rows: all contacts. Per-contact counts and history come from the full
    appointments, interactions, tasks and sequences fetches (no caps). */
 var PATIENTS = {};
+/* A patient's practitioner (most recent appointment's physio), shared
+   with the Patients page filter — PATIENTS[].physio itself is "—". */
+var CONTACT_PHYSIO = {};
 
 var APPOINTMENTS = [];
 
@@ -1634,8 +1663,8 @@ function showPage(id, restoreY){
   closeSidebar();
   window.scrollTo({top:(typeof restoreY==="number" ? restoreY : 0)});
 }
-document.querySelectorAll(".nav-item").forEach(function(b){ b.addEventListener("click", function(){ var pg = b.getAttribute("data-page"); try { if (pg === "my-appointments") closeMyApptDetail(); if (pg === "my-tasks") closeMyTaskDetail(); } catch(e){} showPage(pg); }); });
-document.querySelectorAll("[data-goto]").forEach(function(b){ b.addEventListener("click", function(){ showPage(b.getAttribute("data-goto")); }); });
+document.querySelectorAll(".nav-item").forEach(function(b){ b.addEventListener("click", function(){ var pg = b.getAttribute("data-page"); try { if (pg === "my-appointments") closeMyApptDetail(); if (pg === "my-tasks") closeMyTaskDetail(); } catch(e){} showPage(pg); resetStatusFilters(); rerenderPageFilters(pg); }); });
+document.querySelectorAll("[data-goto]").forEach(function(b){ b.addEventListener("click", function(){ var pg = b.getAttribute("data-goto"); showPage(pg); resetStatusFilters(); rerenderPageFilters(pg); }); });
 
 var sidebar=document.getElementById("sidebar"), scrim=document.getElementById("scrim");
 function closeSidebar(){ sidebar.classList.remove("open"); scrim.classList.remove("show"); }
@@ -1881,12 +1910,35 @@ function bindPatientClicks(scope){
 function renderPatients(filter, query){
   var wrap = document.getElementById("patientList");
   var ids = Object.keys(PATIENTS), shown = 0, html = "";
+  /* Practitioner filter — a patient's practitioner is their most
+     recent appointment's physio (CONTACT_PHYSIO, built in
+     applyLiveData); PATIENTS[].physio itself is always "—", so the
+     filter must use that map. Pill counts are the in-range set for
+     the current physio selection, so they agree with the date filter
+     (and are independent of the search text). */
+  var cpMap = (typeof CONTACT_PHYSIO !== "undefined") ? CONTACT_PHYSIO : {};
+  var patCounts = { all: 0, dnc: 0, takeover: 0, tasks: 0 };
+  ids.forEach(function(id){
+    if(!inRange(LAST_ISO[id])) return;
+    if(patientPhysio!=="all" && (cpMap[id] || "—")!==patientPhysio) return;
+    var pp = PATIENTS[id];
+    patCounts.all++;
+    if(pp.dnc) patCounts.dnc++;
+    if(pp.takeover) patCounts.takeover++;
+    if(pp.openTasks) patCounts.tasks++;
+  });
+  function setPillCount(id, n){ var el = document.getElementById(id); if (el) el.textContent = fmtCount(n); }
+  setPillCount("pillPatAll", patCounts.all);
+  setPillCount("pillDnc", patCounts.dnc);
+  setPillCount("pillPatTake", patCounts.takeover);
+  setPillCount("pillPatTasks", patCounts.tasks);
   ids.forEach(function(id){
     var p = PATIENTS[id];
     if(filter==="dnc" && !p.dnc) return;
     if(filter==="takeover" && !p.takeover) return;
     if(filter==="tasks" && !p.openTasks) return;
     if(!inRange(LAST_ISO[id])) return;
+    if(patientPhysio!=="all" && (cpMap[id] || "—")!==patientPhysio) return;
     if(query && p.name.toLowerCase().indexOf(query.toLowerCase())===-1) return;
     shown++;
     var flag = p.dnc ? ' <span class="tag dnc">DNC</span>' : (p.takeover ? ' <span class="tag amber">Human takeover</span>' : '');
@@ -1903,6 +1955,7 @@ function renderPatients(filter, query){
   bindPatientClicks(wrap);
 }
 var patientFilter = "all";
+var patientPhysio = "all";
 document.querySelectorAll("#patientPills .pill").forEach(function(b){
   b.addEventListener("click", function(){
     document.querySelectorAll("#patientPills .pill").forEach(function(x){ x.classList.remove("active"); });
@@ -1910,6 +1963,7 @@ document.querySelectorAll("#patientPills .pill").forEach(function(b){
     renderPatients(patientFilter, document.getElementById("globalSearch").value);
   });
 });
+document.getElementById("patientPhysioFilter").addEventListener("change", function(){ patientPhysio = this.value; renderPatients(patientFilter, document.getElementById("globalSearch").value); });
 renderPatients("all","");
 
 /* ================= REFERRALS TO CHECK ================= */
@@ -1970,6 +2024,20 @@ function renderAppts(more){
   var st = document.querySelector("#apptPills .pill.active").getAttribute("data-appt");
   var ph = document.getElementById("physioFilter").value;
   var wrap = document.getElementById("apptList"), html = "";
+  /* Status pill counts — the in-range set for the current physio
+     selection, so they agree with the date filter and the dropdown. */
+  var apCounts = { all: 0, processed: 0, pending: 0, cancelled: 0, missed: 0 };
+  APPOINTMENTS.forEach(function(a){
+    if(!inRange(a.dateISO || parseLabelDate(a.label))) return;
+    if(ph!=="all" && a.physio!==ph) return;
+    apCounts.all++;
+    if(apCounts[a.status] != null) apCounts[a.status]++;
+  });
+  document.querySelectorAll("#apptPills .pill").forEach(function(b){
+    var k = b.getAttribute("data-appt");
+    var lab = k === "all" ? "All" : k === "missed" ? "No-show" : (k.charAt(0).toUpperCase() + k.slice(1));
+    b.textContent = lab + " (" + fmtCount(apCounts[k] || 0) + ")";
+  });
   var matches = APPOINTMENTS.filter(function(a){
     if(!inRange(a.dateISO || parseLabelDate(a.label))) return false;
     if(st!=="all" && a.status!==st) return false;
@@ -2300,6 +2368,87 @@ var adminShowN = 60;
 var adminAllShowN = 120;
 var urgShowN = 60;
 var ptShowN = 50;
+/* ================= STATUS FILTER CHIPS ================= */
+/* Clickable status filters (28 Nov): every list page with a real,
+   relatable dimension gets chips with live counts. The chips filter
+   the already-loaded list client-side — no extra fetch per click —
+   and compose with the date filter and search, because the counts are
+   computed from the same in-range set the list itself uses. Filter
+   state resets to All when the page is re-opened (see resetStatusFilters
+   + rerenderPageFilters, wired into the nav handlers below). */
+/* Pure helpers — no DOM, so they are unit-testable in node. */
+function countBy(rows, keyFn){
+  var c = {};
+  (rows || []).forEach(function(r){ var k = keyFn(r); c[k] = (c[k] || 0) + 1; });
+  return c;
+}
+function filterByStatus(rows, key, keyFn){
+  if (key === "all") return (rows || []).slice();
+  return (rows || []).filter(function(r){ return keyFn(r) === key; });
+}
+/* Top N values by count (count desc, label asc for a stable tie-break)
+   plus the long tail as Other. Used by Enquiries, where the outcome
+   column holds ~30 real values — too many for one chip each. */
+function topOutcomes(rows, n, keyFn){
+  var c = countBy(rows, keyFn);
+  var keys = Object.keys(c).sort(function(a, b){ return (c[b] - c[a]) || (a < b ? -1 : 1); });
+  var top = keys.slice(0, n), other = 0;
+  keys.forEach(function(k){ if (top.indexOf(k) === -1) other += c[k]; });
+  return { counts: c, top: top, other: other };
+}
+function fmtCount(n){ return Number(n || 0).toLocaleString("en-GB"); }
+/* One shared chip renderer: fills a .pills container with chips
+   carrying live counts, marks the active one, re-renders on click. */
+function renderStatusPills(containerId, defs, counts, activeKey, onPick){
+  var wrap = document.getElementById(containerId); if (!wrap) return;
+  wrap.innerHTML = defs.map(function(d){
+    var n = counts[d.key] == null ? 0 : counts[d.key];
+    return '<button class="pill' + (d.key === activeKey ? " active" : "") + '" type="button" data-status="' + d.key + '">' + d.label + " (" + fmtCount(n) + ")</button>";
+  }).join("");
+  wrap.querySelectorAll("[data-status]").forEach(function(b){
+    b.addEventListener("click", function(){ onPick(b.getAttribute("data-status")); });
+  });
+}
+/* Status filter state — one var per page, all reset to "all" on
+   re-open. Appointments + Patients pills keep their state in the DOM
+   (the active .pill) plus the patientFilter var; the physio selects
+   reset to "all" too. */
+var adminTaskFilter = "all";
+var enqOutcomeFilter = "all";
+var cxTypeFilter = "all";
+var cxPhysioFilter = "all";
+var crStatusFilter = "all";
+function resetStatusFilters(){
+  try {
+    adminTaskFilter = "all"; enqOutcomeFilter = "all";
+    cxTypeFilter = "all"; cxPhysioFilter = "all"; crStatusFilter = "all";
+    if (typeof myTaskFilter !== "undefined") myTaskFilter = "all";
+    if (typeof myApptFilter !== "undefined") myApptFilter = "all";
+    if (typeof patientFilter !== "undefined") patientFilter = "all";
+    if (typeof patientPhysio !== "undefined") patientPhysio = "all";
+    if (typeof window.resetUserStatusFilter === "function") window.resetUserStatusFilter();
+    document.querySelectorAll("#apptPills .pill").forEach(function(x){ x.classList.toggle("active", x.getAttribute("data-appt") === "all"); });
+    document.querySelectorAll("#patientPills .pill").forEach(function(x){ x.classList.toggle("active", x.getAttribute("data-pfilter") === "all"); });
+    ["physioFilter", "patientPhysioFilter", "cxPhysioFilter"].forEach(function(id){
+      var s = document.getElementById(id); if (s) s.value = "all";
+    });
+  } catch (e) { /* never break navigation */ }
+}
+/* Re-render the page just opened, so the reset filter shows at once.
+   Each render is idempotent; a failure here must never break nav. */
+function rerenderPageFilters(pg){
+  try {
+    if (pg === "admin-today" && typeof renderAdmin === "function") renderAdmin();
+    else if (pg === "appointments" && typeof renderAppts === "function") renderAppts();
+    else if (pg === "patients" && typeof renderPatients === "function") renderPatients(patientFilter, document.getElementById("globalSearch").value);
+    else if (pg === "enquiries" && typeof renderEnquiries === "function") renderEnquiries();
+    else if (pg === "cancellations" && typeof renderCancellations === "function") renderCancellations();
+    else if (pg === "complaints" && typeof renderComplaints === "function") renderComplaints();
+    else if (pg === "my-appointments" && typeof renderMyAppts === "function") renderMyAppts();
+    else if (pg === "my-tasks" && typeof renderMyTasks === "function") renderMyTasks();
+    else if (pg === "users" && typeof window.refreshUsersDateFilter === "function") window.refreshUsersDateFilter();
+  } catch (e) { /* never break navigation */ }
+}
 function renderAdmin(){
   var s = adminStats();
   var inR = s.inR;
@@ -2350,14 +2499,41 @@ function renderAdmin(){
   var amb = document.getElementById("adminMore");
   if(amb) amb.addEventListener("click", function(){ adminShowN += 60; renderAdmin(); });
 
-  /* Bottom list — "All admin tasks": every open task in range, so all
-     not-completed tasks are reachable from here. Shown 120 at a time
-     (the same Load more pattern as Appointments): each click reveals
-     the next 120 until every task is listed. */
+  /* Bottom list — "All admin tasks", with status chips above it.
+     All = every task regardless of status (open + completed +
+     cancelled, in range); Pending is the open list this panel showed
+     before; Overdue is the open tasks past their SLA/due date;
+     Completed / Cancelled come from their own lists (by completion
+     date, in range). Completed/cancelled rows are read-only — no
+     Mark done button. */
+  var doneInR = COMPLETED_TASKS.filter(function(t){ return inRange(t.doneISO); });
+  var cancInR = CANCELLED_TASKS.filter(function(t){ return inRange(t.doneISO); });
+  renderStatusPills("adminTaskPills", [
+    {key:"all", label:"All"}, {key:"pending", label:"Pending"}, {key:"overdue", label:"Overdue"},
+    {key:"completed", label:"Completed"}, {key:"cancelled", label:"Cancelled"}
+  ], {
+    all: inR.length + doneInR.length + cancInR.length,
+    pending: inR.length,
+    overdue: inR.filter(function(a){ return taskOverdue(a); }).length,
+    completed: doneInR.length,
+    cancelled: cancInR.length
+  }, adminTaskFilter, function(k){ adminTaskFilter = k; renderAdmin(); });
   var bottomEl = document.getElementById("adminAllTasks");
   if (bottomEl){
-    var bottom = inR;
-    var bHtml = bottom.length ? bottom.slice(0, adminAllShowN).map(adminBottomRowHTML).join("") : '<div class="empty-note">No tasks in this date range.</div>';
+    var bottom;
+    if (adminTaskFilter === "pending") bottom = inR;
+    else if (adminTaskFilter === "overdue") bottom = inR.filter(function(a){ return taskOverdue(a); });
+    else if (adminTaskFilter === "completed") bottom = doneInR;
+    else if (adminTaskFilter === "cancelled") bottom = cancInR;
+    else bottom = inR.concat(doneInR, cancInR);
+    var bottomEmpty = (adminTaskFilter === "all")
+      ? '<div class="empty-note">No tasks in this date range.</div>'
+      : '<div class="empty-note">No ' + adminTaskFilter + ' tasks in this date range.</div>';
+    var bHtml = bottom.length ? bottom.slice(0, adminAllShowN).map(function(a){
+      if (doneInR.indexOf(a) !== -1) return adminDoneRowHTML(a, "completed");
+      if (cancInR.indexOf(a) !== -1) return adminDoneRowHTML(a, "cancelled");
+      return adminBottomRowHTML(a);
+    }).join("") : bottomEmpty;
     if (bottom.length > adminAllShowN) bHtml += '<div class="load-more-row"><button class="btn" id="adminAllMore">Load more · '+(bottom.length - adminAllShowN)+' more</button></div>';
     bottomEl.innerHTML = bHtml;
     /* "Mark done" clicks are handled by the delegated save-control
@@ -2408,6 +2584,13 @@ function adminBottomRowHTML(a){
     ? '<button class="btn small done-state" disabled>Done \u2713</button>'
     : '<button class="btn small task-done" data-admin-idx="' + ADMIN_ACTIONS.indexOf(a) + '">Mark done</button>';
   return '<div class="task-row"><div class="task-body"><div class="task-title' + (a.done ? " is-done" : "") + '">' + escHtml(a.action) + " \u2014 " + escHtml(a.why) + " " + prio + '</div><div class="task-meta">Type: ' + escHtml(a.action.toLowerCase().replace(/ /g, "_")) + " \u00b7 " + a.dueLabel + link + '</div></div>' + btn + '</div>';
+}
+/* Read-only row for completed / cancelled tasks in the filtered
+   All admin tasks list — no Mark done button, just the outcome tag. */
+function adminDoneRowHTML(a, kind){
+  var tag = kind === "completed" ? '<span class="tag green">Done</span>' : '<span class="tag red">Cancelled</span>';
+  var link = a.pid ? ' \u00b7 <button class="link-btn" style="padding:0;min-height:0" data-patient-link="' + a.pid + '">Patient file</button>' : " \u00b7 No contact linked";
+  return '<div class="task-row"><div class="task-body"><div class="task-title">' + escHtml(a.action) + " \u2014 " + escHtml(a.why) + '</div><div class="task-meta">Type: ' + escHtml(a.type || "") + " \u00b7 " + a.dueLabel + link + '</div></div>' + tag + '</div>';
 }
 
 /* ================= ENQUIRIES & LEADS (3-level drill-down) ================= */
@@ -2517,6 +2700,21 @@ function enqTopic(e){
 function renderNotBooked(tabbed){
   var wrap = document.getElementById("enqNotBooked"); if(!wrap) return;
   var nb = (tabbed||[]).filter(function(e){ return !e.booked; }).slice().sort(function(a,b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
+  /* Outcome chips — the top 5 real outcomes in this tab + range, plus
+     Other for the long tail (the outcome column holds ~30 distinct
+     values — too many for one chip each). The chips filter the whole
+     not-booked section below (buckets, table, lost reasons); their
+     counts come from the unfiltered set. A stale filter value (an
+     outcome that fell out of the top 5 after a date/tab change)
+     resets to All. */
+  var oc = topOutcomes(nb, 5, function(e){ return e.outcome || "—"; });
+  if (enqOutcomeFilter !== "all" && enqOutcomeFilter !== "__other__" && oc.top.indexOf(enqOutcomeFilter) === -1) enqOutcomeFilter = "all";
+  var ocDefs = [{key:"all", label:"All"}].concat(oc.top.map(function(k){ return {key:k, label:k}; }));
+  if (oc.other > 0) ocDefs.push({key:"__other__", label:"Other"});
+  var ocCounts = { all: nb.length, __other__: oc.other };
+  oc.top.forEach(function(k){ ocCounts[k] = oc.counts[k]; });
+  if (enqOutcomeFilter === "__other__") nb = nb.filter(function(e){ return oc.top.indexOf(e.outcome || "—") === -1; });
+  else if (enqOutcomeFilter !== "all") nb = nb.filter(function(e){ return (e.outcome || "—") === enqOutcomeFilter; });
   var counts = {ai:0, human:0, lost:0, dnc:0};
   nb.forEach(function(e){ counts[enqBucket(e)]++; });
   var maxB = Math.max(counts.ai, counts.human, counts.lost, counts.dnc, 1);
@@ -2526,7 +2724,9 @@ function renderNotBooked(tabbed){
   }).join("");
   var tableHtml;
   if(!nb.length){
-    tableHtml = '<div class="empty-note">Everyone in this range booked — nothing waiting.</div>';
+    tableHtml = enqOutcomeFilter === "all"
+      ? '<div class="empty-note">Everyone in this range booked — nothing waiting.</div>'
+      : '<div class="empty-note">No enquiries with this outcome in this range.</div>';
   } else {
     tableHtml = '<div class="list-head nb-t-grid"><span>Name</span><span>Source</span><span>Enquired about</span><span>Attempts</span><span>Last contact</span><span>Reason</span><span>Next step</span></div>'
       + nb.slice(0, nbShowN).map(function(e){
@@ -2552,11 +2752,13 @@ function renderNotBooked(tabbed){
   }).join("");
   wrap.innerHTML = '<div class="panel-head"><h3>Enquiries not booked</h3><span class="cell-sub num">'+nb.length+' not booked</span></div>'
     + '<p class="nb-note">A lead is marked lost after 3 attempts with no reply, or when they say no.</p>'
+    + '<div class="toolbar"><div class="pills" id="enqOutcomePills"></div></div>'
     + bucketsHtml
     + '<div style="margin-top:16px;border-top:1px solid var(--line)">'+tableHtml+'</div>'
     + '<div style="font-weight:800;font-size:14.5px;margin:20px 0 4px">Lost reasons</div>'
     + lostHtml
     + '<p class="nb-note" style="margin:12px 0 0">Lost leads get one more message after 30 days before they&rsquo;re closed.</p>';
+  renderStatusPills("enqOutcomePills", ocDefs, ocCounts, enqOutcomeFilter, function(k){ enqOutcomeFilter = k; renderEnquiries(); });
   bindPatientClicks(wrap);
   var nmb = document.getElementById("nbMore");
   if(nmb) nmb.addEventListener("click", function(){ nbShowN += 60; renderEnquiries(); });
@@ -2657,6 +2859,7 @@ document.querySelectorAll("#enqTabs .pill").forEach(function(btn){
     document.querySelectorAll("#enqTabs .pill").forEach(function(x){ x.classList.remove("active"); });
     btn.classList.add("active");
     enqTab = btn.getAttribute("data-enqtab");
+    enqOutcomeFilter = "all";
     renderEnquiries();
   });
 });
@@ -2765,6 +2968,19 @@ function cxGroup(raw){
 function renderCancellations(){
   var listEl = document.getElementById("cxList"); if(!listEl) return;
   var rows = CX_ROWS.filter(function(r){ return inRange(r.dateISO); });
+  /* Type + physio filter — counts are the in-range set, so they agree
+     with the date filter. The reason bars above stay the summary of
+     all in-range cancellations. */
+  var cxCounts = { all: rows.length, cancelled: 0, missed: 0 };
+  rows.forEach(function(r){ if (cxCounts[r.type] != null) cxCounts[r.type]++; });
+  renderStatusPills("cxPills", [
+    {key:"all", label:"All"}, {key:"cancelled", label:"Cancelled"}, {key:"missed", label:"DNA"}
+  ], cxCounts, cxTypeFilter, function(k){ cxTypeFilter = k; renderCancellations(); });
+  var cxList = rows.filter(function(r){
+    if (cxTypeFilter !== "all" && r.type !== cxTypeFilter) return false;
+    if (cxPhysioFilter !== "all" && r.physio !== cxPhysioFilter) return false;
+    return true;
+  });
   var rb = document.getElementById("cxRebooked");
   if(rb) rb.textContent = rows.filter(function(r){ return r.rebooked; }).length;
   /* Reason bars — cancelled rows only, grouped from the free text. */
@@ -2777,7 +2993,7 @@ function renderCancellations(){
     var col = g==="Unhappy with care" ? "var(--red-dot)" : "var(--teal-deep)";
     return '<div class="nb-bucket"><span class="nb-lab">'+g+'</span><span class="nb-track"><i class="nb-fill" style="width:'+w+'%;background:'+col+'"></i></span><span class="nb-num num">'+counts[g]+'</span></div>';
   }).join("") : '<div class="empty-note">No cancellations in this date range.</div>';
-  var sorted = rows.slice().sort(function(a,b){ return a.dateISO < b.dateISO ? 1 : (a.dateISO > b.dateISO ? -1 : 0); });
+  var sorted = cxList.slice().sort(function(a,b){ return a.dateISO < b.dateISO ? 1 : (a.dateISO > b.dateISO ? -1 : 0); });
   listEl.innerHTML = sorted.map(function(r){
     var p = enqPatient(r.pid);
     var typeTag = r.type==="cancelled" ? '<span class="tag red">Cancelled</span>' : '<span class="tag amber">DNA</span>';
@@ -2794,7 +3010,9 @@ function renderCancellations(){
       + '<div>'+reb+'</div>'
       + '<div><div style="font-weight:700;font-size:14px">'+r.fu+' follow-up'+(r.fu===1 ? "" : "s")+'</div><div class="cell-sub">'+escHtml(r.seq)+'</div></div></div>';
   }).join("");
-  document.getElementById("cxEmpty").classList.toggle("hidden-row", rows.length>0);
+  document.getElementById("cxEmpty").classList.toggle("hidden-row", cxList.length>0);
+  var cxEmptyEl = document.getElementById("cxEmpty");
+  if (cxEmptyEl && !cxList.length) cxEmptyEl.textContent = (cxTypeFilter === "all" && cxPhysioFilter === "all") ? "No cancellations or DNAs in this date range." : "Nothing matches this filter in this date range.";
   bindPatientClicks(listEl);
 }
 
@@ -2802,6 +3020,7 @@ function renderCancellations(){
 /* Rows come from targeted fetches by task_type (complaint / refund),
    so the lists cover every complaint and refund task. */
 var CR_TASKS = [];
+document.getElementById("cxPhysioFilter").addEventListener("change", function(){ cxPhysioFilter = this.value; renderCancellations(); });
 
 function crRowHTML(t){
   var p = enqPatient(t.pid);
@@ -2814,8 +3033,17 @@ function crRowHTML(t){
 function renderComplaints(){
   var cEl = document.getElementById("crComplaints"); if(!cEl) return;
   var rows = CR_TASKS.filter(function(t){ return inRange(t.dateISO); });
-  var comp = rows.filter(function(t){ return t.kind==="complaint"; });
-  var ref = rows.filter(function(t){ return t.kind==="refund"; });
+  /* Status chips — counts are the in-range set, so they agree with the
+     date filter. The chips filter both lists; the KPI boxes above stay
+     the summary of the full in-range set. */
+  var crCounts = { all: rows.length, open: 0, completed: 0, cancelled: 0 };
+  rows.forEach(function(t){ if (crCounts[t.rawStatus] != null) crCounts[t.rawStatus]++; });
+  renderStatusPills("crPills", [
+    {key:"all", label:"All"}, {key:"open", label:"Open"}, {key:"completed", label:"Done"}, {key:"cancelled", label:"Cancelled"}
+  ], crCounts, crStatusFilter, function(k){ crStatusFilter = k; renderComplaints(); });
+  var rowsF = crStatusFilter === "all" ? rows : rows.filter(function(t){ return t.rawStatus === crStatusFilter; });
+  var comp = rowsF.filter(function(t){ return t.kind==="complaint"; });
+  var ref = rowsF.filter(function(t){ return t.kind==="refund"; });
   cEl.innerHTML = comp.map(crRowHTML).join("");
   document.getElementById("crRefunds").innerHTML = ref.map(crRowHTML).join("");
   document.getElementById("crComplaintsEmpty").classList.toggle("hidden-row", comp.length>0);
@@ -3819,20 +4047,36 @@ function renderMyWork(){
   renderMyPatients();
   renderMyTasks();
 }
+var myApptFilter = "all";
+var myTaskFilter = "all";
 function renderMyAppts(){
   var un = document.getElementById("myApptUnmapped"); if (un) un.hidden = !myUnmapped();
   var card = document.getElementById("myApptCard"); if (card) card.hidden = myUnmapped();
+  var bar = document.getElementById("myApptPillsBar"); if (bar) bar.hidden = myUnmapped();
   var rows = document.getElementById("myApptRows"); if (!rows) return;
   var sub = document.getElementById("myApptSubtitle");
   if (sub) sub.textContent = ACCESS.isOwner ? "All appointments · all dates" : (ACCESS.practitionerName ? (ACCESS.practitionerName + " · your appointments · all dates") : "Your appointments · all dates");
+  /* Status chips — counts come from the scoped list (the signed-in
+     physio's own appointments, or all of them for the owner), so they
+     are right for whoever is signed in. */
+  var apCounts = { all: MY_APPTS.length, pending: 0, processed: 0, cancelled: 0, missed: 0 };
+  MY_APPTS.forEach(function(a){ if (apCounts[a.status] != null) apCounts[a.status]++; });
+  renderStatusPills("myApptPills", [
+    {key:"all", label:"All"}, {key:"pending", label:"Pending"}, {key:"processed", label:"Processed"},
+    {key:"cancelled", label:"Cancelled"}, {key:"missed", label:"No-show"}
+  ], apCounts, myApptFilter, function(k){ myApptFilter = k; renderMyAppts(); });
   var empty = document.getElementById("myApptEmpty");
-  if (myUnmapped() || !MY_APPTS.length){
+  var list = myApptFilter === "all" ? MY_APPTS : MY_APPTS.filter(function(a){ return a.status === myApptFilter; });
+  if (myUnmapped() || !list.length){
     rows.innerHTML = "";
-    if (empty) empty.classList.toggle("hidden-row", myUnmapped());
+    if (empty){
+      empty.classList.toggle("hidden-row", myUnmapped());
+      empty.textContent = (!myUnmapped() && MY_APPTS.length) ? ("No " + (myApptFilter === "missed" ? "no-show" : myApptFilter) + " appointments.") : "No appointments yet.";
+    }
     return;
   }
   if (empty) empty.classList.add("hidden-row");
-  rows.innerHTML = MY_APPTS.map(function(a){
+  rows.innerHTML = list.map(function(a){
     var tag = a.status === "processed" ? "green" : (a.status === "cancelled" ? "red" : (a.status === "missed" ? "amber" : "blue"));
     return '<div class="list-row clickable" data-my-appt="' + a.id + '" role="button" tabindex="0" title="Open appointment detail" style="grid-template-columns:1.5fr 1.2fr .8fr"><div class="cell-main">' + escHtml(a.patient) + '</div><div class="cell-sub">' + escHtml(a.label) + '</div><div style="text-align:right"><span class="tag ' + tag + '">' + escHtml(humanize(a.status)) + '</span></div></div>';
   }).join("");
@@ -3939,18 +4183,46 @@ function bindMyTaskDetail(container){
 }
 function renderMyTasks(){
   var un = document.getElementById("myTaskUnmapped"); if (un) un.hidden = !myUnmapped();
+  var bar = document.getElementById("myTaskPillsBar"); if (bar) bar.hidden = myUnmapped();
   var rows = document.getElementById("myTaskRows"); if (!rows) return;
   var sub = document.getElementById("myTaskSubtitle");
   if (sub) sub.textContent = ACCESS.isOwner ? "All tasks — choose an outcome, then tick to save it" : (ACCESS.practitionerName ? (ACCESS.practitionerName + " · choose an outcome, then tick to save it") : "Choose an outcome, then tick to save it");
+  /* Status chips — counts from the scoped lists. The open list keeps
+     its ORIGINAL indexes when filtered, because the outcome controls
+     and the detail view both look tasks up by that index. */
+  var mtCounts = {
+    all: MY_TASKS.length + MY_TASKS_DONE.length,
+    open: MY_TASKS.length,
+    overdue: MY_TASKS.filter(function(a){ return taskOverdue(a); }).length,
+    completed: MY_TASKS_DONE.length
+  };
+  renderStatusPills("myTaskPills", [
+    {key:"all", label:"All"}, {key:"open", label:"Open"}, {key:"overdue", label:"Overdue"}, {key:"completed", label:"Completed"}
+  ], mtCounts, myTaskFilter, function(k){ myTaskFilter = k; renderMyTasks(); });
   var empty = document.getElementById("myTaskEmpty");
+  var openPanel = document.getElementById("myTaskOpenPanel");
+  var donePanel = document.getElementById("myTaskDonePanel");
+  if (openPanel) openPanel.hidden = (myTaskFilter === "completed");
+  if (donePanel) donePanel.hidden = (myTaskFilter === "open" || myTaskFilter === "overdue");
   if (myUnmapped() || !MY_TASKS.length){
     rows.innerHTML = "";
     if (empty) empty.classList.toggle("hidden-row", myUnmapped());
   } else {
-    if (empty) empty.classList.add("hidden-row");
-    rows.innerHTML = MY_TASKS.map(function(a, i){ return myTaskRowHTML(a, i); }).join("");
-    bindActionRows(rows);
-    bindMyTaskDetail(rows);
+    var openIdx = [];
+    MY_TASKS.forEach(function(a, i){
+      if (myTaskFilter === "completed") return;
+      if (myTaskFilter === "overdue" && !taskOverdue(a)) return;
+      openIdx.push(i);
+    });
+    if (!openIdx.length){
+      rows.innerHTML = "";
+      if (empty){ empty.classList.remove("hidden-row"); empty.textContent = myTaskFilter === "overdue" ? "No overdue tasks." : "No open tasks."; }
+    } else {
+      if (empty) empty.classList.add("hidden-row");
+      rows.innerHTML = openIdx.map(function(i){ return myTaskRowHTML(MY_TASKS[i], i); }).join("");
+      bindActionRows(rows);
+      bindMyTaskDetail(rows);
+    }
   }
   renderMyTasksDone();
 }
@@ -3993,6 +4265,7 @@ function applyLiveData(data){
     var cid = String(a.contact_id), d = a.starts_at || "";
     if (!contactPhysioDate[cid] || d > contactPhysioDate[cid]){ contactPhysioDate[cid] = d; contactPhysio[cid] = nm; }
   });
+  CONTACT_PHYSIO = contactPhysio;
 
   /* My Work — the signed-in physio's own data only. The lists above
      are already scoped by the fetches (practitioner_id filter, the
@@ -4149,8 +4422,8 @@ function applyLiveData(data){
       carried: t.status === "open" && createdISO === isoAdd(TODAY_ISO, -1), done: t.status !== "open", outcome: "", custom: "", metadata: t.metadata || {},
       action: stripMarkup(humanize(t.task_type || "Task")), why: stripMarkup(trunc(t.title || "", 170)) };
     if (t.status === "open") ADMIN_ACTIONS.push(item);
-    else if (t.status === "completed") COMPLETED_TASKS.push({ pid: item.pid, patient: item.patient, dueISO: dueISO, doneISO: doneISO });
-    else if (t.status === "cancelled") CANCELLED_TASKS.push({ pid: item.pid, patient: item.patient, dueISO: dueISO, doneISO: doneISO });
+    else if (t.status === "completed") COMPLETED_TASKS.push({ pid: item.pid, patient: item.patient, dueISO: dueISO, doneISO: doneISO, action: item.action, why: item.why, dueLabel: item.dueLabel, type: stripMarkup(t.task_type || "") });
+    else if (t.status === "cancelled") CANCELLED_TASKS.push({ pid: item.pid, patient: item.patient, dueISO: dueISO, doneISO: doneISO, action: item.action, why: item.why, dueLabel: item.dueLabel, type: stripMarkup(t.task_type || "") });
   });
 
   /* Complaints & refunds — from their own targeted fetch by task_type,
@@ -4901,6 +5174,7 @@ function practitionerOptions(selectedId){
     return '<option value="' + p.practitioner_id + '"' + sel + '>' + esc(p.name) + '</option>';
   }).join("");
 }
+var userStatusFilter = "all";
 function renderUsersList(users){
   var wrap = document.getElementById("usersList"); if (!wrap) return;
   if (!users.length){ wrap.innerHTML = '<div class="empty-note">No users yet.</div>'; return; }
@@ -4929,7 +5203,24 @@ function renderUsersList(users){
   }
   var emptyHtml = (dateB && staffTotal > 0 && staffShown === 0)
     ? '<div class="empty-note">No users added in this period.</div>' : "";
-  wrap.innerHTML = noteHtml + emptyHtml + users.map(function(u, idx){
+  /* Status chips — counts are the date-filtered set (owner included),
+     so they agree with the date filter. The owner follows the status
+     filter too (the owner is always active: shown under All/Active,
+     hidden under Inactive). */
+  var stCounts = { all: users.length, active: 0, inactive: 0 };
+  users.forEach(function(u){
+    var av = (u.active != null ? u.active : (u.is_active != null ? u.is_active : true));
+    if (av !== false) stCounts.active++; else stCounts.inactive++;
+  });
+  if (userStatusFilter !== "all"){
+    users = users.filter(function(u){
+      var av = (u.active != null ? u.active : (u.is_active != null ? u.is_active : true));
+      return userStatusFilter === "active" ? av !== false : av === false;
+    });
+    if (!emptyHtml && users.length === 0)
+      emptyHtml = '<div class="empty-note">No ' + userStatusFilter + ' users in this period.</div>';
+  }
+  wrap.innerHTML = '<div class="toolbar"><div class="pills" id="userStatusPills"></div></div>' + noteHtml + emptyHtml + users.map(function(u, idx){
     var uid = u.id || u.user_id || "";
     var isOwner = (u.role === "owner");
     var activeVal = (u.active != null ? u.active : (u.is_active != null ? u.is_active : true));
@@ -4982,6 +5273,9 @@ function renderUsersList(users){
       + '<p class="users-err" data-user-err role="alert"></p>'
       + '</div>';
   }).join("");
+  renderStatusPills("userStatusPills", [
+    {key:"all", label:"All"}, {key:"active", label:"Active"}, {key:"inactive", label:"Inactive"}
+  ], stCounts, userStatusFilter, function(k){ userStatusFilter = k; renderUsersList(lastUsersList); });
   /* Two-tap confirm state per card, reset on every render. The selector
      MUST stay scoped to <button>: the card itself carries data-user-state,
      and an earlier unscoped [data-user-active] selector also matched the
@@ -5091,6 +5385,7 @@ function loadUsersList(){
    is not callable from the first script — same cross-scope trap as the
    My Appointments nav bug. No-ops until the list has loaded once. */
 window.refreshUsersDateFilter = function(){ if (usersLoadedOnce && lastUsersList) renderUsersList(lastUsersList); };
+window.resetUserStatusFilter = function(){ userStatusFilter = "all"; };
 var usersNavBtn = document.getElementById("navUsers");
 if (usersNavBtn) usersNavBtn.addEventListener("click", function(){ if (ACCESS.isOwner) loadUsersList(); });
 var usersRefreshBtn = document.getElementById("usersRefresh");
