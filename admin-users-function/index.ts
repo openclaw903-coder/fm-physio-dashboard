@@ -17,7 +17,7 @@ const FALLBACK_ORIGIN = "https://fm-physio-dashboard-zol1.vercel.app";
 const SITE_URL = "https://fm-physio-dashboard-zol1.vercel.app";
 
 // Must match the dashboard's data-page keys exactly.
-const PAGES = ["overview","owner-overview","admin-today","appointments","patients","enquiries","cancellations","complaints","discharged","team","performance","progress","payments","ai","unprocessed","dnc"];
+const PAGES = ["overview","owner-overview","admin-today","appointments","patients","enquiries","cancellations","complaints","discharged","team","performance","progress","payments","ai","unprocessed","dnc","my-appointments","my-patients","my-tasks"];
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -59,7 +59,7 @@ async function requireOwner(req: Request) {
 async function listUsers() {
   const { data: admins, error: aErr } = await sb
     .from("admin_users")
-    .select("user_id, display_name, role, active, created_at")
+    .select("user_id, display_name, role, active, created_at, practitioner_id")
     .order("created_at");
   if (aErr) throw new Error(aErr.message);
   const { data: access } = await sb
@@ -79,6 +79,7 @@ async function listUsers() {
       active: a.active,
       created_at: a.created_at,
       email: emailById[String(a.user_id)] || null,
+      practitioner_id: (a.practitioner_id == null ? null : a.practitioner_id),
       pages: PAGES.filter((p) =>
         (access || []).some(
           (r: Record<string, unknown>) =>
@@ -164,6 +165,44 @@ Deno.serve(async (req: Request) => {
         PAGES.map((p) => ({ user_id: userId, page_key: p, allowed: pages.includes(p) })),
       );
       if (insErr) return respond(headers, { ok: false, error: insErr.message }, 500);
+      return respond(headers, { ok: true });
+    }
+
+    // Link a user login to a physio (My Work pages). The id must be a
+    // practicehub_practitioners.practitioner_id; null removes the link.
+    // The owner has no mapping (they see everything). Requires the
+    // practitioner_id column on admin_users (my-work-sql/setup.sql).
+    if (action === "set_practitioner") {
+      const userId = String(body.user_id || "");
+      const raw = body.practitioner_id;
+      const practitionerId =
+        raw === null || raw === undefined || raw === "" ? null : Number(raw);
+      if (!userId) return respond(headers, { ok: false, error: "user_id required" }, 400);
+      if (practitionerId !== null && (!Number.isInteger(practitionerId) || practitionerId <= 0)) {
+        return respond(headers, { ok: false, error: "practitioner_id must be a practitioner id or null" }, 400);
+      }
+      const { data: target } = await sb
+        .from("admin_users")
+        .select("role")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (!target) return respond(headers, { ok: false, error: "user not found" }, 404);
+      if (target.role === "owner") {
+        return respond(headers, { ok: false, error: "owner has no physio mapping" }, 400);
+      }
+      if (practitionerId !== null) {
+        const { data: prac } = await sb
+          .from("practicehub_practitioners")
+          .select("practitioner_id")
+          .eq("practitioner_id", practitionerId)
+          .maybeSingle();
+        if (!prac) return respond(headers, { ok: false, error: "practitioner not found" }, 404);
+      }
+      const { error: updErr } = await sb
+        .from("admin_users")
+        .update({ practitioner_id: practitionerId })
+        .eq("user_id", userId);
+      if (updErr) return respond(headers, { ok: false, error: updErr.message }, 500);
       return respond(headers, { ok: true });
     }
 

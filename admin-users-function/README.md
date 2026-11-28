@@ -11,6 +11,12 @@ account that can call it; everyone else gets `403 owner only`.
   (the user sets their own password from the link), creates the `admin_users`
   row (`role: 'user'`, `active: true`) and the `user_page_access` rows.
 - `set_pages` `{user_id, pages[]}` — replaces a user's allowed pages.
+- `set_practitioner` `{user_id, practitioner_id|null}` — links a user
+  login to a physio (their My Work pages show only that physio's data).
+  `practitioner_id` must be a `practicehub_practitioners` id (1 Stuart,
+  7 Kate, 8 Lucy, 9 Arek, 11 Ethan, 12 Aadyaa); `null` removes the link.
+  The owner cannot be mapped. Requires the `practitioner_id` column on
+  `admin_users` — run `../my-work-sql/setup.sql` Section A first.
 - `set_active` `{user_id, active}` — deactivate (remove access) / reactivate.
 - `delete_user` `{user_id}` — permanently deletes the Auth user + admin row.
   Page-access rows cascade from the Auth user delete.
@@ -40,3 +46,9 @@ first invite goes out.
 `user_page_access` table + RLS (owner-or-self read, owner-only write),
 grants for `authenticated` and `service_role`, and a backfill giving every
 existing admin user all 16 pages.
+
+My Work pages (`my-appointments`, `my-patients`, `my-tasks`) are part of
+the page list; they are granted through the same tick UI as the other
+pages. New users still get NO pages by default. Never grant the `ai`
+page to a physio — the AI assistant reads everything via service_role
+and has no caller identity, so it stays owner-only.
