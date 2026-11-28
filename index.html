@@ -2660,12 +2660,17 @@ function adminKpiMatch(a, key, ctx){
   }
   if (key === "ontime"){
     if (!isCompleted) return false;
-    if (a.doneISO) return a.doneISO <= a.dueISO;
+    /* Same Mon–Sun week window as the KPI count (adminStats): a
+       completion from an earlier week is not this week's on-time. */
+    if (a.doneISO) return a.doneISO <= a.dueISO && a.doneISO >= ctx.wkStart && a.doneISO <= ctx.wkEnd;
     return a.dueISO >= TODAY_ISO;
   }
   if (key === "late"){
     if (!isCompleted) return false;
-    if (a.doneISO) return a.doneISO > a.dueISO;
+    /* Same Mon–Sun week window as the KPI count: without it the
+       filter returned every late completion ever ("Load more · 33
+       more") instead of this week's 2. */
+    if (a.doneISO) return a.doneISO > a.dueISO && a.doneISO >= ctx.wkStart && a.doneISO <= ctx.wkEnd;
     return a.dueISO < TODAY_ISO;
   }
   if (key === "notcompleted") return inOpen && !a.done;
@@ -4690,7 +4695,7 @@ function myTaskRowHTML(a, idx){
     + '<div>'+badge+'</div>'
     + '<div><span class="a-patient">'+escHtml(a.patient)+'</span></div>'
     + '<div class="a-action">'+escHtml(a.action)+'</div>'
-    + '<div class="a-why">'+escHtml(a.why)+'</div>'
+    + '<div class="a-why">'+escHtml(a.why)+withFlagHTML(a)+'</div>' /* "Currently with" flag — same placement as the Admin Today rows (actionRowHTML). withFlagHTML returns "" for done tasks, and this builder only renders open rows, so no extra guard. */
     + '<div class="a-due">'+escHtml(a.openedLabel)+'</div>'
     + '<div class="a-outcome"><select class="act-outcome" aria-label="Outcome">'+opts+'</select>'
     + '<input type="text" class="act-custom" placeholder="Or type an outcome…" value="'+a.custom.replace(/"/g,"&quot;")+'" aria-label="Type your own outcome" /></div>'
