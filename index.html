@@ -429,8 +429,18 @@ h1,h2,h3{font-family:"Fraunces",Georgia,serif;font-weight:600;line-height:1.15;m
 @media (max-width:860px){.cx-grid,.cr-grid,.dc-grid{grid-template-columns:1fr !important}}
 
 /* Team & Performance */
-.perf-grid{grid-template-columns:1.2fr .52fr .48fr .52fr .62fr .58fr .92fr .68fr .72fr .72fr .78fr .78fr;font-size:13px}
+.perf-grid{grid-template-columns:1.2fr .52fr .48fr .52fr .62fr .58fr .92fr .68fr .72fr .78fr;font-size:13px}
 .perf-grid .cell-main{font-size:13.5px}
+/* Progress month chart — pure CSS bars, one distinct colour per metric */
+.prog-bar-row{display:grid;grid-template-columns:110px 1fr 56px;gap:10px;align-items:center;margin:12px 0}
+.prog-bar-track{height:18px;background:var(--surface-2);border-radius:9px;overflow:hidden}
+.prog-bar-fill{height:100%;border-radius:9px;min-width:3px}
+.prog-bar-attended{background:#3E7C59}
+.prog-bar-cancelled{background:var(--red)}
+.prog-bar-noshow{background:#BE9848}
+.prog-legend{display:flex;gap:16px;flex-wrap:wrap;margin:14px 0 2px}
+.prog-legend span{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
+.prog-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
 .nd{color:var(--muted);font-size:12px;font-weight:700}
 .team-counts{display:flex;gap:16px;flex-wrap:wrap;font-size:13.5px;color:var(--ink-2);margin-top:2px}
 .team-counts b{color:var(--ink)}
@@ -1076,7 +1086,7 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
         </div>
         <div class="list-card">
           <div class="list-head perf-grid">
-            <span>Physio</span><span>Booked</span><span>New</span><span>Cancels</span><span>No-shows</span><span>Rebook rate</span><span>Complaints / Refunds</span><span>Tasks overdue</span><span>Unprocessed</span><span>No next appt</span><span>Revenue</span><span>Avg pain change</span>
+            <span>Physio</span><span>Booked</span><span>New</span><span>Cancels</span><span>No-shows</span><span>Rebook rate</span><span>Complaints / Refunds</span><span>Tasks overdue</span><span>Unprocessed</span><span>Revenue</span>
           </div>
           <div id="perfList"></div>
         </div>
@@ -1283,10 +1293,18 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
           </div>
           <div class="list-row" style="grid-template-columns:1fr .8fr .8fr .8fr"><div class="cell-main">—</div><div class="num" style="font-weight:800">—</div><div class="num">—</div><div class="num" style="text-align:right">—</div></div>
         </div>
+        <div class="toolbar" style="margin-bottom:14px"><div class="pills" id="progPills"></div><span class="spacer"></span><span class="cell-sub" id="progChartNote"></span></div>
+        <div class="panel" style="margin-bottom:22px">
+          <div class="panel-head"><h3 id="progChartTitle">—</h3><span class="cell-sub">Attended · Cancelled · No-shows</span></div>
+          <div id="progChart"></div>
+        </div>
+        <div class="panel" style="margin-bottom:22px">
+          <div class="panel-head"><h3>By physio</h3><span class="cell-sub" id="progPhysioNote"></span></div>
+          <div id="progPhysioRows"></div>
+        </div>
         <div class="panel">
           <h3>Per patient</h3>
           <div id="progressList"></div>
-          <p style="color:var(--muted);font-size:12.5px;margin:12px 0 0">Not tracked yet</p>
         </div>
       </section>
 
@@ -1404,15 +1422,20 @@ body.locked .app,body.locked .assist-fab,body.locked .assist-panel,body.locked .
         </div>
         <div class="toolbar" id="myTaskPillsBar"><div class="pills" id="myTaskPills"></div></div>
         <div class="panel" id="myTaskOpenPanel" style="margin-bottom:22px">
-          <div class="panel-head"><h3>Open tasks</h3></div>
+          <div class="panel-head"><h3>Pending tasks</h3></div>
           <div class="action-head"><span></span><span>Status</span><span>Patient</span><span>Action</span><span>Why</span><span>Opened</span><span>Outcome</span></div>
           <div id="myTaskRows"></div>
-          <div class="empty-note hidden-row" id="myTaskEmpty">No open tasks.</div>
+          <div class="empty-note hidden-row" id="myTaskEmpty">No pending tasks.</div>
         </div>
         <div class="panel" id="myTaskDonePanel">
           <div class="panel-head"><h3>Completed</h3></div>
           <div id="myTaskDoneRows"></div>
           <div class="empty-note hidden-row" id="myTaskDoneEmpty">Nothing completed yet.</div>
+        </div>
+        <div class="panel" id="myTaskCancPanel">
+          <div class="panel-head"><h3>Cancelled</h3></div>
+          <div id="myTaskCancRows"></div>
+          <div class="empty-note hidden-row" id="myTaskCancEmpty">Nothing cancelled yet.</div>
         </div>
         <div id="myTaskDetail" hidden></div>
       </section>
@@ -1792,20 +1815,24 @@ function closeMyApptDetail(){
   window.scrollTo({top:0});
 }
 /* My Tasks detail — reuses the patient-file task detail rows. Reads
-   only MY_TASKS / MY_TASKS_DONE (the scoped lists the page renders),
+   only MY_TASKS / MY_TASKS_DONE / MY_TASKS_CANCELLED (the scoped lists
+   the page renders),
    so a physio can never open another physio's task. Back returns to
    the My Tasks list. The row's own controls are untouched. */
 function openMyTaskDetail(taskId){
   var a = null;
   MY_TASKS.forEach(function(x){ if (String(x.id) === String(taskId)) a = x; });
   if (!a) MY_TASKS_DONE.forEach(function(x){ if (String(x.id) === String(taskId)) a = x; });
+  if (!a) MY_TASKS_CANCELLED.forEach(function(x){ if (String(x.id) === String(taskId)) a = x; });
   if (!a) return;
   var openPanel = document.getElementById("myTaskOpenPanel");
   var donePanel = document.getElementById("myTaskDonePanel");
+  var cancPanel = document.getElementById("myTaskCancPanel");
   var det = document.getElementById("myTaskDetail");
   if (!det) return;
   if (openPanel) openPanel.hidden = true;
   if (donePanel) donePanel.hidden = true;
+  if (cancPanel) cancPanel.hidden = true;
   det.innerHTML = '<button class="btn" id="myTaskDetailBack" style="margin-bottom:16px">← Back to My Tasks</button><div class="panel"><h3>Task detail</h3>' + taskDetailRows(a, a.patient) + '</div>';
   det.hidden = false;
   document.getElementById("myTaskDetailBack").addEventListener("click", closeMyTaskDetail);
@@ -1815,6 +1842,7 @@ function closeMyTaskDetail(){
   var det = document.getElementById("myTaskDetail"); if (det){ det.hidden = true; det.innerHTML = ""; }
   var openPanel = document.getElementById("myTaskOpenPanel"); if (openPanel) openPanel.hidden = false;
   var donePanel = document.getElementById("myTaskDonePanel"); if (donePanel) donePanel.hidden = false;
+  var cancPanel = document.getElementById("myTaskCancPanel"); if (cancPanel) cancPanel.hidden = false;
   window.scrollTo({top:0});
 }
 
@@ -2078,18 +2106,26 @@ document.getElementById("physioFilter").addEventListener("change", function(){ r
 renderAppts();
 
 /* ================= PROGRESS LIST ================= */
-(function(){
+/* Was an IIFE that ran ONCE at page load from PATIENTS before the live
+   fetch filled it — so the Per patient section stayed empty forever.
+   Now a named function, re-run after every live load (see applyLiveData),
+   so the list shows the real per-patient counts. */
+function renderProgressList(){
   var html = "";
   Object.keys(PATIENTS).forEach(function(id){
     var p = PATIENTS[id];
+    var physio = ((typeof CONTACT_PHYSIO !== "undefined") && CONTACT_PHYSIO[id]) ? CONTACT_PHYSIO[id] : p.physio;
     html += '<div class="row-item" data-patient="'+id+'"><span class="avatar sm '+p.av+'">'+p.initials+'</span>'
-      + '<div class="row-main"><div class="row-title">'+escHtml(p.name)+'</div><div class="row-sub">'+escHtml(p.physio)+'</div></div>'
+      + '<div class="row-main"><div class="row-title">'+escHtml(p.name)+'</div><div class="row-sub">'+escHtml(physio)+'</div></div>'
       + '<div class="row-side"><div class="t num">'+p.appts+' appts · '+p.interactions+' calls</div></div>'+CHEV+'</div>';
   });
   var el = document.getElementById("progressList");
-  el.innerHTML = html;
+  if (!el) return;
+  el.innerHTML = html || '<div class="empty-note">No patients yet.</div>';
   bindPatientClicks(el);
-})();
+}
+window.renderProgressList = renderProgressList;
+renderProgressList();
 
 /* ================= SEARCH ================= */
 /* The search box must always start empty — never let a browser-restored or
@@ -2169,6 +2205,7 @@ var MY_APPTS = [];
 var MY_PATIENTS = [];
 var MY_TASKS = [];
 var MY_TASKS_DONE = [];
+var MY_TASKS_CANCELLED = [];
 /* Completed tasks come from the full tasks fetch, so the Admin Today
    completed counts use real totals. Completed means status "completed"
    ONLY — cancelled tasks live in their own list and are never counted
@@ -2597,8 +2634,8 @@ function adminDoneRowHTML(a, kind){
 /* Enquiry rows are all interactions (full fetch, no cap).
    Source comes from provider + channel (Vapi web = chat, Assistant voice = speed-to-lead,
    Retell voice = after-hours, or reactivation when the summary is a follow-up / check-in).
-   There is no ad-source column, so Meta ads (form) and Google ads carry
-   NO numbers — they live in Meta Ads / Google Ads. Referrals are different:
+   There is no ad-source column, so Google ads carries NO numbers — it
+   lives in Google Ads. Referrals are different:
    they live in Supabase (public.referrals) and are shown from REFERRALS below. */
 var ENQ_SOURCES = [
   {key:"afterhours", name:"AI after-hours calls", role:"Inbound Voice Agent", via:"Retell · voice, inbound", sub:"Inbound Voice Agent · Retell"},
@@ -2607,7 +2644,6 @@ var ENQ_SOURCES = [
   {key:"mastl", name:"Meta speed-to-lead", role:"Outbound Voice Agent", via:"Assistant · voice", sub:"Outbound Voice Agent · Assistant voice"}
 ];
 var ENQ_NODATA = [
-  {key:"metaads", name:"Meta ads (form)", note:"No data yet", where:"Meta form leads live in GHL / Meta Ads"},
   {key:"googleads", name:"Google ads", note:"No data yet", where:"Google leads live in Google Ads"}
 ];
 /* Referrals live in Supabase (public.referrals, loaded into REFERRALS) —
@@ -2785,10 +2821,10 @@ function renderEnquiries(){
     {l:"Booked via AI", v:bookedAll, sub:"Appointments booked from an AI interaction · all enquiries in range"},
     {l:"Conversion rate", v:enqPct(booked, total), sub:enqTab==="new" ? "new patients" : "existing patients"},
     {l:"Not booked", v:total-booked, sub:"in range"},
-    {l:"New contacts · "+mLabel, v:npm, sub:"contacts added in "+mLabel}
+    {l:"New patients · "+mLabel, v:npm}
   ];
   kpiEl.innerHTML = kpis.map(function(k){
-    return '<div class="kpi"><div class="k-label">'+k.l+'</div><div class="k-value num">'+k.v+'</div><div class="k-sub">'+k.sub+'</div></div>';
+    return '<div class="kpi"><div class="k-label">'+k.l+'</div><div class="k-value num">'+k.v+'</div>'+(k.sub?'<div class="k-sub">'+k.sub+'</div>':'')+'</div>';
   }).join("");
   document.querySelector('#enqTabs [data-enqtab="new"]').textContent = "New patients · " + newC;
   document.querySelector('#enqTabs [data-enqtab="existing"]').textContent = "Existing patients · " + exC;
@@ -3125,7 +3161,6 @@ var PERF_MONTHS = {"2026-09":{"label":"Sep 2026","rows":{}},"2026-10":{"label":"
 
 /* Rebook rate is not in the snapshot (no rebook linkage), so it shows —. */
 var PERF_REBOOK = {"Ethan Redmond":"\u2014","Aadyaa Madhu":"\u2014","Lucy Byott":"\u2014","Arek Rogozinski":"\u2014","Stuart Goldfinch":"\u2014","Kate Bennett":"\u2014"};
-var PERF_NONEXT = {};
 var PERF_MONTH = "2026-11";
 function perfComplaints(full, monthKey){
   /* Complaint / refund tasks carry no physio in the snapshot — not derivable per physio. */
@@ -3153,8 +3188,6 @@ function renderPerformance(){
       + '<div class="num">'+perfComplaints(full, PERF_MONTH)+'</div>'
       + '<div class="num">'+perfTasksOverdue(full, PERF_MONTH)+'</div>'
       + '<div class="num">'+c.pending+'</div>'
-      + '<div class="num">\u2014</div>'
-      + '<div class="nd">No data yet</div>'
       + '<div class="nd">No data yet</div></div>';
   }).join("");
   bindPhysioClicks(wrap);
@@ -4187,36 +4220,42 @@ function renderMyTasks(){
   var rows = document.getElementById("myTaskRows"); if (!rows) return;
   var sub = document.getElementById("myTaskSubtitle");
   if (sub) sub.textContent = ACCESS.isOwner ? "All tasks — choose an outcome, then tick to save it" : (ACCESS.practitionerName ? (ACCESS.practitionerName + " · choose an outcome, then tick to save it") : "Choose an outcome, then tick to save it");
-  /* Status chips — counts from the scoped lists. The open list keeps
+  /* Status chips — counts from the scoped lists, unified with
+     Admin Today for the owner: All covers open + completed +
+     cancelled, and Overdue uses the same SLA rule. The open list keeps
      its ORIGINAL indexes when filtered, because the outcome controls
      and the detail view both look tasks up by that index. */
   var mtCounts = {
-    all: MY_TASKS.length + MY_TASKS_DONE.length,
+    all: MY_TASKS.length + MY_TASKS_DONE.length + MY_TASKS_CANCELLED.length,
     open: MY_TASKS.length,
     overdue: MY_TASKS.filter(function(a){ return taskOverdue(a); }).length,
-    completed: MY_TASKS_DONE.length
+    completed: MY_TASKS_DONE.length,
+    cancelled: MY_TASKS_CANCELLED.length
   };
   renderStatusPills("myTaskPills", [
-    {key:"all", label:"All"}, {key:"open", label:"Open"}, {key:"overdue", label:"Overdue"}, {key:"completed", label:"Completed"}
+    {key:"all", label:"All"}, {key:"open", label:"Pending"}, {key:"overdue", label:"Overdue"},
+    {key:"completed", label:"Completed"}, {key:"cancelled", label:"Cancelled"}
   ], mtCounts, myTaskFilter, function(k){ myTaskFilter = k; renderMyTasks(); });
   var empty = document.getElementById("myTaskEmpty");
   var openPanel = document.getElementById("myTaskOpenPanel");
   var donePanel = document.getElementById("myTaskDonePanel");
-  if (openPanel) openPanel.hidden = (myTaskFilter === "completed");
-  if (donePanel) donePanel.hidden = (myTaskFilter === "open" || myTaskFilter === "overdue");
+  var cancPanel = document.getElementById("myTaskCancPanel");
+  if (openPanel) openPanel.hidden = (myTaskFilter === "completed" || myTaskFilter === "cancelled");
+  if (donePanel) donePanel.hidden = (myTaskFilter === "open" || myTaskFilter === "overdue" || myTaskFilter === "cancelled");
+  if (cancPanel) cancPanel.hidden = (myTaskFilter !== "all" && myTaskFilter !== "cancelled");
   if (myUnmapped() || !MY_TASKS.length){
     rows.innerHTML = "";
     if (empty) empty.classList.toggle("hidden-row", myUnmapped());
   } else {
     var openIdx = [];
     MY_TASKS.forEach(function(a, i){
-      if (myTaskFilter === "completed") return;
+      if (myTaskFilter === "completed" || myTaskFilter === "cancelled") return;
       if (myTaskFilter === "overdue" && !taskOverdue(a)) return;
       openIdx.push(i);
     });
     if (!openIdx.length){
       rows.innerHTML = "";
-      if (empty){ empty.classList.remove("hidden-row"); empty.textContent = myTaskFilter === "overdue" ? "No overdue tasks." : "No open tasks."; }
+      if (empty){ empty.classList.remove("hidden-row"); empty.textContent = myTaskFilter === "overdue" ? "No overdue tasks." : "No pending tasks."; }
     } else {
       if (empty) empty.classList.add("hidden-row");
       rows.innerHTML = openIdx.map(function(i){ return myTaskRowHTML(MY_TASKS[i], i); }).join("");
@@ -4225,6 +4264,20 @@ function renderMyTasks(){
     }
   }
   renderMyTasksDone();
+  renderMyTasksCancelled();
+}
+function renderMyTasksCancelled(){
+  var wrap = document.getElementById("myTaskCancRows"); if (!wrap) return;
+  var empty = document.getElementById("myTaskCancEmpty");
+  if (!MY_TASKS_CANCELLED.length){ wrap.innerHTML = ""; if (empty) empty.classList.remove("hidden-row"); return; }
+  if (empty) empty.classList.add("hidden-row");
+  wrap.innerHTML = MY_TASKS_CANCELLED.slice(0, 50).map(function(a){
+    return '<div class="list-row clickable" data-my-task="'+a.id+'" role="button" tabindex="0" title="Open task detail" style="grid-template-columns:1.5fr 1fr .8fr"><div class="cell-main">'+escHtml(a.patient)+' — '+escHtml(a.action)+'</div><div class="cell-sub">'+escHtml(a.openedLabel)+'</div><div style="text-align:right"><span class="tag red">Cancelled</span></div></div>';
+  }).join("");
+  wrap.querySelectorAll("[data-my-task]").forEach(function(el){
+    el.addEventListener("click", function(){ openMyTaskDetail(el.getAttribute("data-my-task")); });
+    el.addEventListener("keydown", function(e){ if (e.key === "Enter"){ e.preventDefault(); openMyTaskDetail(el.getAttribute("data-my-task")); } });
+  });
 }
 function renderMyTasksDone(){
   var wrap = document.getElementById("myTaskDoneRows"); if (!wrap) return;
@@ -4280,6 +4333,7 @@ function applyLiveData(data){
   MY_PATIENTS = [];
   MY_TASKS = [];
   MY_TASKS_DONE = [];
+  MY_TASKS_CANCELLED = [];
   /* Owner mode: the owner sees ALL data in My Work — they cannot be
      mapped to a physio. A mapped physio sees only their scoped lists;
      an unmapped non-owner sees nothing (myUnmapped). */
@@ -4342,9 +4396,11 @@ function applyLiveData(data){
         apptLabel: appt ? (fmtWhen(appt.starts_at) + " · " + (pracName[appt.practitioner_id] || "") + " · " + humanize(appt.status || "")) : "" };
       if (t.status === "open") MY_TASKS.push(item);
       else if (t.status === "completed") MY_TASKS_DONE.push(item);
+      else if (t.status === "cancelled") MY_TASKS_CANCELLED.push(item);
     });
     MY_TASKS.sort(function(x, y){ return (x.createdISO < y.createdISO ? 1 : -1); });
     MY_TASKS_DONE.sort(function(x, y){ return (x.createdISO < y.createdISO ? 1 : -1); });
+    MY_TASKS_CANCELLED.sort(function(x, y){ return (x.createdISO < y.createdISO ? 1 : -1); });
   }
   renderMyWork();
 
@@ -4396,8 +4452,18 @@ function applyLiveData(data){
   /* My Tasks detail: fill the SLA due date where the view has one
      (owners only — physios never fetch vw_task_sla, so theirs stays ""). */
   if (slaMap){
-    [MY_TASKS, MY_TASKS_DONE].forEach(function(list){
-      (list || []).forEach(function(it){ var r = slaMap[String(it.id)]; if (r && r.sla_due_at) it.slaLabel = fmtWhen(r.sla_due_at); });
+    [MY_TASKS, MY_TASKS_DONE, MY_TASKS_CANCELLED].forEach(function(list){
+      (list || []).forEach(function(it){
+        var r = slaMap[String(it.id)];
+        if (r && r.sla_due_at) it.slaLabel = fmtWhen(r.sla_due_at);
+        /* Same SLA overdue rule as ADMIN_ACTIONS. Without this the
+           My Tasks items kept slaOverdue null, so taskOverdue() fell
+           back to the created-date test and counted 982 overdue
+           against Admin Today's SLA-based 953. Physios never fetch
+           the view, so their slaOverdue stays null and the fallback
+           stands for them. */
+        it.slaOverdue = (r && r.sla_due_at != null) ? !!r.is_overdue : !!(it.dueISO && it.dueISO < TODAY_ISO);
+      });
     });
   }
   ADMIN_ACTIONS = [];
@@ -4606,6 +4672,7 @@ function applyLiveData(data){
 
   updateLiveTotals(counts, lists);
   rebuildProgressMonths(lists.monthly || []);
+  if (typeof window.renderProgressList === "function") window.renderProgressList();
   rebuildDncList(lists.contacts || []);
   rebuildUnproc(lists);
   rebuildUnprocByPhysio(lists, counts);
@@ -4821,18 +4888,89 @@ function updateLiveTotals(counts, lists){
   });
 }
 
+var PROG_MONTH = "2026-11";
+var PROG_MONTHLY = [];
 function rebuildProgressMonths(monthly){
-  var rows = document.querySelectorAll("#page-progress .list-row");
+  PROG_MONTHLY = monthly || [];
+  var rows = document.querySelectorAll("#page-progress .list-card .list-row");
   if (!rows.length) return;
   var card = rows[0].parentElement;
   var MONL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
   var html = '<div class="list-head" style="grid-template-columns:1fr .8fr .8fr .8fr"><span>Month</span><span>Attended</span><span>Cancelled</span><span style="text-align:right">No-shows</span></div>';
-  monthly.forEach(function(m){
+  PROG_MONTHLY.forEach(function(m){
     var p = dparts(m.report_month);
+    var mk = String(m.report_month).slice(0,7);
     var lab = p ? MONL[parseInt(String(m.report_month).slice(5,7),10) - 1] + " " + String(m.report_month).slice(0,4) : m.report_month;
-    html += '<div class="list-row" style="grid-template-columns:1fr .8fr .8fr .8fr"><div class="cell-main">' + esc(lab) + '</div><div class="num" style="font-weight:800">' + fmtNum(m.attended) + '</div><div class="num">' + fmtNum(m.cancellations) + '</div><div class="num" style="text-align:right">' + fmtNum(m.no_shows) + "</div></div>";
+    var sel = (mk === PROG_MONTH);
+    html += '<div class="list-row clickable" data-progmonth="'+mk+'" role="button" tabindex="0" title="Show '+esc(lab)+'" style="grid-template-columns:1fr .8fr .8fr .8fr'+(sel?';background:var(--teal-soft)':'')+'"><div class="cell-main">' + esc(lab) + '</div><div class="num" style="font-weight:800">' + fmtNum(m.attended) + '</div><div class="num">' + fmtNum(m.cancellations) + '</div><div class="num" style="text-align:right">' + fmtNum(m.no_shows) + "</div></div>";
   });
+  if (!PROG_MONTHLY.length) html += '<div class="empty-note">No data yet</div>';
   card.innerHTML = html;
+  card.querySelectorAll("[data-progmonth]").forEach(function(el){
+    el.addEventListener("click", function(){ PROG_MONTH = el.getAttribute("data-progmonth"); rebuildProgressMonths(PROG_MONTHLY); });
+    el.addEventListener("keydown", function(e){ if (e.key === "Enter"){ e.preventDefault(); PROG_MONTH = el.getAttribute("data-progmonth"); rebuildProgressMonths(PROG_MONTHLY); } });
+  });
+  renderProgressMonth();
+}
+/* Selected month's report: coloured bars for the three monthly metrics
+   (dashboard_monthly_performance — real values only) + the per-physio
+   split from PERF_MONTHS rows (Booked = processed, Cancels, No-shows
+   = missed). Months with no split show an honest note, never invented
+   numbers. */
+function renderProgressMonth(){
+  var pills = document.getElementById("progPills");
+  var chart = document.getElementById("progChart");
+  var title = document.getElementById("progChartTitle");
+  var note = document.getElementById("progChartNote");
+  var physRows = document.getElementById("progPhysioRows");
+  var physNote = document.getElementById("progPhysioNote");
+  if (!chart) return;
+  var months = PROG_MONTHLY || [];
+  if (!months.length){
+    chart.innerHTML = '<div class="empty-note">No data yet</div>';
+    if (pills) pills.innerHTML = "";
+    if (physRows) physRows.innerHTML = "";
+    return;
+  }
+  var mk = PROG_MONTH;
+  if (!months.some(function(m){ return String(m.report_month).slice(0,7) === mk; })) mk = String(months[months.length-1].report_month).slice(0,7);
+  PROG_MONTH = mk;
+  var MONL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  var label = MONL[parseInt(mk.slice(5,7),10)-1] + " " + mk.slice(0,4);
+  if (title) title.textContent = label;
+  if (pills){
+    pills.innerHTML = months.map(function(m){
+      var k = String(m.report_month).slice(0,7);
+      var lab = MONL[parseInt(k.slice(5,7),10)-1].slice(0,3) + " " + k.slice(0,4);
+      return '<button class="pill' + (k === mk ? " active" : "") + '" type="button" data-progmonth="' + k + '">' + lab + "</button>";
+    }).join("");
+    pills.querySelectorAll("[data-progmonth]").forEach(function(b){
+      b.addEventListener("click", function(){ PROG_MONTH = b.getAttribute("data-progmonth"); rebuildProgressMonths(PROG_MONTHLY); });
+    });
+  }
+  var m = null;
+  months.forEach(function(x){ if (String(x.report_month).slice(0,7) === mk) m = x; });
+  if (!m){ chart.innerHTML = '<div class="empty-note">No data yet</div>'; return; }
+  var att = m.attended || 0, can = m.cancellations || 0, ns = m.no_shows || 0;
+  var max = Math.max(att, can, ns, 1);
+  function bar(lab, val, cls){
+    return '<div class="prog-bar-row"><div class="cell-main">' + lab + '</div><div class="prog-bar-track"><div class="prog-bar-fill ' + cls + '" style="width:' + Math.round(val/max*100) + '%"></div></div><div class="num" style="font-weight:800;text-align:right">' + fmtNum(val) + "</div></div>";
+  }
+  chart.innerHTML = bar("Attended", att, "prog-bar-attended") + bar("Cancelled", can, "prog-bar-cancelled") + bar("No-shows", ns, "prog-bar-noshow")
+    + '<div class="prog-legend"><span><span class="prog-dot prog-bar-attended"></span>Attended</span><span><span class="prog-dot prog-bar-cancelled"></span>Cancelled</span><span><span class="prog-dot prog-bar-noshow"></span>No-shows</span></div>';
+  if (note) note.textContent = "Total events " + fmtNum(m.total_events || (att + can + ns));
+  if (physRows){
+    if (physNote) physNote.textContent = label;
+    var M = (typeof PERF_MONTHS !== "undefined") ? PERF_MONTHS[mk] : null;
+    if (!M || !M.rows){ physRows.innerHTML = '<div class="empty-note">No per-physio data for this month.</div>'; return; }
+    var order = (typeof TEAM_ORDER !== "undefined" && TEAM_ORDER.length) ? TEAM_ORDER : Object.keys(M.rows);
+    var rowsHtml = '<div class="list-head" style="grid-template-columns:1.4fr .8fr .8fr .8fr"><span>Physio</span><span>Booked</span><span>Cancelled</span><span style="text-align:right">No-shows</span></div>';
+    order.forEach(function(full){
+      var r = M.rows[full]; if (!r) return;
+      rowsHtml += '<div class="list-row" style="grid-template-columns:1.4fr .8fr .8fr .8fr"><div class="cell-main">' + esc(full) + '</div><div class="num" style="font-weight:800">' + fmtNum(r.b) + '</div><div class="num">' + fmtNum(r.c) + '</div><div class="num" style="text-align:right">' + fmtNum(r.d) + "</div></div>";
+    });
+    physRows.innerHTML = rowsHtml;
+  }
 }
 function rebuildDncList(contacts){
   var card = document.querySelector("#page-dnc .list-card");
